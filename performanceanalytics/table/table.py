@@ -20,10 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
+
 import pandas as pd
-import os
-import datetime
 
 
 def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False):
