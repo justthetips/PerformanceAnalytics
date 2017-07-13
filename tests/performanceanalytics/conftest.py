@@ -30,7 +30,7 @@ class Data(object):
         #TODO is there a better way to do this?
         base_path = os.path.abspath(os.getcwd())
         data_file = os.path.join(base_path,'data','managers.csv')
-        self.series = pd.read_csv(data_file,index_col=0)
+        self.series = pd.read_csv(data_file,index_col=0,parse_dates=[0])
 
 @pytest.fixture(scope="session")
 def series():

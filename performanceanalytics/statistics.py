@@ -21,18 +21,3 @@
 # SOFTWARE.
 
 
-from performanceanalytics.seriesholder import SeriesHolder
-import pytest
-
-
-def test_seriesholder(series):
-    sh = SeriesHolder(series, 0, 9, [1, 2, 3, 4, 5], [6, 7, 8])
-    assert sh.manager_col == 1
-    assert sh.rf_col == 10
-    assert sh.peer_cols == [2, 3, 4, 5, 6]
-    assert sh.index_cols == [7, 8, 9]
-
-
-def test_series(series):
-    sh = SeriesHolder(series, 0, 9, [1, 2, 3, 4, 5], [6, 7, 8])
-    assert sh.series.shape == (132,10)
