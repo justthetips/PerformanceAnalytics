@@ -22,6 +22,8 @@
 
 
 import pandas as pd
+from collections import namedtuple
+from performanceanalytics.statistics import geo_mean_return, mean_confidence_interval
 
 
 def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False):
@@ -72,11 +74,37 @@ def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False)
             _i = data_series[data_series.columns[index_col]].fillna(0)
             index_annual_returns = []
             for y in years:
-                index_annual_returns.append(((_i[str(y)]+1).cumprod() -1).iloc[11])
+                index_annual_returns.append(((_i[str(y)] + 1).cumprod() - 1).iloc[11])
             df.loc[data_series.columns.values[index_col]] = index_annual_returns
 
     if as_perc:
-        df = df.applymap(lambda x: "{0:.2f}%".format(x*100))
+        df = df.applymap(lambda x: "{0:.2f}%".format(x * 100))
 
 
+def stats(data_series, manager_col=0, other_cols=None):
+    manager_stats = series_stats(data_series[data_series.columns[manager_col]])
+
+
+def series_stats(data_series):
+    if not isinstance(data_series, pd.Series):
+        raise ValueError("Must be a Pandas Series")
+
+    SContainer = namedtuple('SContainer',
+                            'Observations NAs Minimum Quartile1 Median aMean gMean Quartile3 Maximum seMean lclMean uclMean Variance Stdev Skew Kurt')
+
+    SContainer.Observations = data_series.count()
+    SContainer.NAs = data_series.isnull().sum()
+    SContainer.Minimum = data_series.min()
+    SContainer.Quartile1 = data_series.quantile(.25)
+    SContainer.Median = data_series.median()
+    SContainer.gMean = geo_mean_return(data_series)
+    SContainer.Quartile3 = data_series.quantile(.75)
+    SContainer.Maximum = data_series.max()
+    SContainer.seMean = data_series.sem()
+    SContainer.aMean, SContainer.lclMean, SContainer.uclMean = mean_confidence_interval(data_series)
+    SContainer.Variance = data_series.var()
+    SContainer.Stdev = data_series.std()
+    SContainer.Skew = data_series.skew()
+    SContainer.Kurt = data_series.kurt()
+    return SContainer
 
