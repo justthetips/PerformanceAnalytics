@@ -10,7 +10,7 @@
 # furnished to do so, subject to the following conditions:
 
 # The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# copies or substantial portions of the Software
 
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -20,32 +20,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import pandas as pd
-import numpy as np
-import scipy as sp
-import scipy.stats
-from functools import reduce
+import pytest
+
+from performanceanalytics import statistics
+
+def test_geomean_simple():
+    assert statistics.geo_mean([2,18])==6
+    assert statistics.geo_mean([10,51.2,8]) == pytest.approx(16,.000001)
+    assert statistics.geo_mean([1,3,9,27,81]) == pytest.approx(9,.000001)
 
 
-def geo_mean(data):
-    """
-    quickly calculate the geometric mean of a series
-    :param data: an iterable series
-    :return: the geometric mean
-    """
-    return (reduce(lambda x, y: x * y, data)) ** (1.0 / len(data))
-
-def geo_mean_return(data):
-    data = data[~np.isnan(data)]
-    cr = ((1+data).cumprod())[-1]
-    gr = (cr ** (1/len(data))) - 1
-    return gr
+def test_geomean_timeseries(series):
+    dv = series[series.columns[0]].values
+    dv2 = series[series.columns[1]].values
+    assert statistics.geo_mean_return(dv) == pytest.approx(0.0108,.001)
+    assert statistics.geo_mean_return(dv2) == pytest.approx(0.0135, .001)
 
 
-
-def mean_confidence_interval(data, confidence=0.95):
-    a = 1.0 * np.array(data)
-    n = len(a)
-    m, se = np.mean(a), scipy.stats.sem(a)
-    h = se * sp.stats.t._ppf((1 + confidence) / 2., n - 1)
-    return m, m - h, m + h
