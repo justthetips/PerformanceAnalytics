@@ -23,7 +23,7 @@
 
 import pandas as pd
 from collections import namedtuple
-from performanceanalytics.statistics import geo_mean, mean_confidence_interval
+from performanceanalytics.statistics import geo_mean_return, mean_confidence_interval
 
 
 def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False):
@@ -97,7 +97,7 @@ def series_stats(data_series):
     SContainer.Minimum = data_series.min()
     SContainer.Quartile1 = data_series.quantile(.25)
     SContainer.Median = data_series.median()
-    SContainer.gMean = geo_mean(data_series)
+    SContainer.gMean = geo_mean_return(data_series)
     SContainer.Quartile3 = data_series.quantile(.75)
     SContainer.Maximum = data_series.max()
     SContainer.seMean = data_series.sem()
