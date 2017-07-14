@@ -51,11 +51,13 @@ def geo_mean_return(data):
 
 def mean_confidence_interval(data, confidence=0.95):
     """
-    calculate the mean and the upper and lower confidence bounds
+    calculate the mean and the upper and lower confidence bounds.  please note
+    na's are dropped so errors will not be returned
     :param data: the data
     :param confidence: the confidence interval (defaults to .95)
     :return: tuple (mean, lcl, hcl)
     """
+    data = data[~np.isnan(data)]
     a = 1.0 * np.array(data)
     n = len(a)
     m, se = np.mean(a), scipy.stats.sem(a)

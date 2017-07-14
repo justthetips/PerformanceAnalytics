@@ -45,3 +45,24 @@ def test_series_stats(series):
     assert sc.Stdev == pytest.approx(0.0256,abs=MINE)
     assert sc.Skew == pytest.approx(-0.66644,abs=MINE)
     assert sc.Kurt == pytest.approx(2.50042,abs=MINE)
+
+def test_series_stats_nas(series):
+    st = series[series.columns[1]]
+    sc = series_stats(st)
+    assert sc.Observations == 125
+    assert sc.NAs == 7
+    assert sc.Minimum == pytest.approx(-.0371,abs=MINE)
+    assert sc.Quartile1 == pytest.approx(-0.0098,abs=MINE)
+    assert sc.Median == pytest.approx(0.0082,abs=MINE)
+    assert sc.aMean == pytest.approx(0.0141,abs=MINE)
+    assert sc.gMean == pytest.approx(0.0135,abs=MINE)
+    assert sc.Quartile3 == pytest.approx(0.0252,abs=MINE)
+    assert sc.Maximum == pytest.approx(0.1556,abs=MINE)
+    assert sc.seMean == pytest.approx(0.0033,abs=MINE)
+    assert sc.lclMean == pytest.approx(0.0076,abs=MINE)
+    assert sc.uclMean == pytest.approx(0.0206,abs=MINE)
+    assert sc.Variance == pytest.approx(0.0013,abs=MINE)
+    assert sc.Stdev == pytest.approx(0.0367,abs=MINE)
+    assert sc.Skew == pytest.approx(1.47581,abs=MINE)
+    assert sc.Kurt == pytest.approx(2.52697,abs=MINE)
+
