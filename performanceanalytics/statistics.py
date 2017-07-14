@@ -35,6 +35,7 @@ def geo_mean(data):
     """
     return (reduce(lambda x, y: x * y, data)) ** (1.0 / len(data))
 
+
 def geo_mean_return(data):
     """
     calculate the geometric mean return of a pandas time series.  please note
@@ -43,10 +44,9 @@ def geo_mean_return(data):
     :return: the geomtreic mean return
     """
     data = data[~np.isnan(data)]
-    cr = ((1+data).cumprod())[-1]
-    gr = (cr ** (1/len(data))) - 1
+    cr = ((1 + data).cumprod())[-1]
+    gr = (cr ** (1 / len(data))) - 1
     return gr
-
 
 
 def mean_confidence_interval(data, confidence=0.95):
@@ -65,59 +65,135 @@ def mean_confidence_interval(data, confidence=0.95):
     return m, m - h, m + h
 
 
-def create_capm_frame(manager,index,rf=None):
+def create_capm_frame(manager, index, rf=None):
+    """
+    create a suitable dataframe for CAPM calculations.  Series have to have the same length
+    if the rf series is not passed in, one will be created with all 0s
+
+    it is unlikely users will call this method, it is used internally
+
+    :param manager: manager return series
+    :param index: index return series
+    :param rf: optional risk free rate series
+    :return: a single data frame
+    """
     # lets check to make sure manager and index are pandas series
-    if not isinstance(manager,pd.Series):
+    if not isinstance(manager, pd.Series):
         raise ValueError("Manager series must be a pandas series")
-    if not isinstance(index,pd.Series):
+    if not isinstance(index, pd.Series):
         raise ValueError("Index series must be a pandas series")
-    if (rf is not None) and (not isinstance(rf,pd.Series)):
+    if (rf is not None) and (not isinstance(rf, pd.Series)):
         raise ValueError("Risk Free must either be none or a pandas series")
 
-    #check for lengths, we do this befor the na's
+    # check for lengths, we do this befor the na's
     if manager.size != index.size:
-        raise ValueError("Manager and Index must be the same size, you passed in {} and {}".format(manager.size,index.size))
+        raise ValueError(
+            "Manager and Index must be the same size, you passed in {} and {}".format(manager.size, index.size))
     if (rf is not None) and (manager.size != rf.size):
-        raise ValueError("Manager and RF must be the same size, you passed in {} and {}".format(manager.size, index.size))
+        raise ValueError(
+            "Manager and RF must be the same size, you passed in {} and {}".format(manager.size, index.size))
 
-
-
-    #if the risk free is None, create a risk free series of 0
+    # if the risk free is None, create a risk free series of 0
     if rf is None:
         rf_data = [0.0] * len(manager)
-        rf = pd.Series(rf_data,index=manager.index)
+        rf = pd.Series(rf_data, index=manager.index)
 
-
-    #drop the na's and join to make sure they have the same valid length
+    # drop the na's and join to make sure they have the same valid length
     manager = manager.dropna()
     index = index.dropna()
     rf = rf.dropna()
-    df = pd.concat([manager,index,rf],axis=1,join='inner')
+    df = pd.concat([manager, index, rf], axis=1, join='inner')
 
-    #return the df
+    # return the df
     return df
 
-def capm(manager,index,rf=None):
-    df = create_capm_frame(manager,index,rf)
 
-    #now that we have the dataframe, we subtract the rf from the manager and the index
+def capm(manager, index, rf=None):
+    """
+    calculate the CAPM parameters for the manager, and the index.  If the rf series is passed in, it will be subtracted from each
+    :param manager: the manager time series
+    :param index: the index time series
+    :param rf: optional rf time series.
+    :return: tuple of (alpha, beta, r2)
+    """
+    df = create_capm_frame(manager, index, rf)
+    return capm_calc(df)
+
+
+def capm_upper(manager, index, rf=None, threshold=0.0):
+    """
+    calculate CAPM on manager returns above a threshold (tehcnically above or equal to)
+    :param manager: the manager
+    :param index: the index time series
+    :param rf: optional risk free rate time series
+    :param threshold: the threshold, defaults to 0
+    :return: tuple of (alpha, beta, r2)
+    """
+    df = create_capm_frame(manager, index, rf)
+    df = df[df[df.columns[0]] >= threshold]
+    return capm_calc(df)
+
+def capm_lower(manager, index, rf=None, threshold=0.0):
+    """
+    calculate CAPM on manager returns below a threshold (tehcnically below or equal to)
+    :param manager: the manager
+    :param index: the index time series
+    :param rf: optional risk free rate time series
+    :param threshold: the threshold, defaults to 0
+    :return: tuple of (alpha, beta, r2)
+    """
+    df = create_capm_frame(manager, index, rf)
+    df = df[df[df.columns[0]] <= threshold]
+    return capm_calc(df)
+
+
+def capm_calc(df):
+    """
+    calculate alpha, beta, and r2 for a manager and an index series
+    :param df: the capm dataframe
+    :return: tuple (alpha, beta, r2)
+    """
+    # now that we have the dataframe, we subtract the rf from the manager and the index
     manager_adj = df[df.columns[0]] - df[df.columns[2]]
     index_adj = df[df.columns[1]] - df[df.columns[2]]
 
-    #use numpy linalg to calculate the terms
+    # use numpy linalg to calculate the terms
     x = index_adj.values
     y = manager_adj.values
     A = np.vstack([x, np.ones(len(x))]).T
 
     m, c = np.linalg.lstsq(A, y)[0]
 
-    r2 = np.corrcoef(x,y)[0][1] ** 2
+    r2 = np.corrcoef(x, y)[0][1] ** 2
 
-    #return as a tuple
+    # return as a tuple
     return (c, m, r2)
 
+def correl(manager,index,rf=None):
+    df = create_capm_frame(manager, index, rf)
+    return correl_calc(df)
 
 
 
+def correl_calc(df):
+    # now that we have the dataframe, we subtract the rf from the manager and the index
+    manager_adj = df[df.columns[0]] - df[df.columns[2]]
+    index_adj = df[df.columns[1]] - df[df.columns[2]]
+
+    # use numpy linalg to calculate the terms
+    x = index_adj.values
+    y = manager_adj.values
+
+    #use scipy to calculate the correlation and the pvalue
+    c,p = scipy.stats.pearsonr(x,y)
+    return c,p
+
+def tracking_error(manager,index):
+    df = create_capm_frame(manager,index)
+    m = df[df.columns[0]].values
+    b = df[df.columns[1]].values
+    diff = m - b
+    te = np.sqrt(np.mean(diff**2))
+    return te
 
 
