@@ -49,6 +49,15 @@ def geo_mean_return(data):
     return gr
 
 
+def annualized_return(data):
+    total_return = ((1 + data).cumprod())[-1]
+    s_date = data.index.min()
+    e_date = data.index.max()
+    t = ((e_date - s_date).days) / 365.25
+    ar = (total_return ** (1 / t)) - 1
+    return ar
+
+
 def mean_confidence_interval(data, confidence=0.95):
     """
     calculate the mean and the upper and lower confidence bounds.  please note
@@ -108,6 +117,27 @@ def create_capm_frame(manager, index, rf=None):
     return df
 
 
+def create_sharpe_frame(manager, rf):
+    # lets check to make sure manager and index are pandas series
+    if not isinstance(manager, pd.Series):
+        raise ValueError("Manager series must be a pandas series")
+    if not isinstance(rf, pd.Series):
+        raise ValueError("Index series must be a pandas series")
+
+    # check for lengths, we do this befor the na's
+    if manager.size != rf.size:
+        raise ValueError(
+            "Manager and RF must be the same size, you passed in {} and {}".format(manager.size, rf.size))
+
+    # drop the na's and join to make sure they have the same valid length
+    manager = manager.dropna()
+    rf = rf.dropna()
+    df = pd.concat([manager, rf], axis=1, join='inner')
+
+    # return the df
+    return df
+
+
 def capm(manager, index, rf=None):
     """
     calculate the CAPM parameters for the manager, and the index.  If the rf series is passed in, it will be subtracted from each
@@ -132,6 +162,7 @@ def capm_upper(manager, index, rf=None, threshold=0.0):
     df = create_capm_frame(manager, index, rf)
     df = df[df[df.columns[0]] >= threshold]
     return capm_calc(df)
+
 
 def capm_lower(manager, index, rf=None, threshold=0.0):
     """
@@ -169,13 +200,26 @@ def capm_calc(df):
     # return as a tuple
     return (c, m, r2)
 
-def correl(manager,index,rf=None):
+
+def correl(manager, index, rf=None):
+    """
+    calculate to correlation and the correlation p-value between a manager and an index
+    if the rf rate is passed in, they are both adjusted by it
+    :param manager: the manager
+    :param index: the index
+    :param rf: rf defaults to None
+    :return: tuple (correlation, pvalue)
+    """
     df = create_capm_frame(manager, index, rf)
     return correl_calc(df)
 
 
-
 def correl_calc(df):
+    """
+    internal calculation of the correlation, uses scypy
+    :param df: the data frame
+    :return: tuple (correlation,  pvalue)
+    """
     # now that we have the dataframe, we subtract the rf from the manager and the index
     manager_adj = df[df.columns[0]] - df[df.columns[2]]
     index_adj = df[df.columns[1]] - df[df.columns[2]]
@@ -184,16 +228,52 @@ def correl_calc(df):
     x = index_adj.values
     y = manager_adj.values
 
-    #use scipy to calculate the correlation and the pvalue
-    c,p = scipy.stats.pearsonr(x,y)
-    return c,p
+    # use scipy to calculate the correlation and the pvalue
+    c, p = scipy.stats.pearsonr(x, y)
+    return c, p
 
-def tracking_error(manager,index):
-    df = create_capm_frame(manager,index)
+
+def tracking_error(manager, benchmark):
+    """
+    calculate the tracking error of a manager and the benchmark.
+    Tracking error is calculated by taking the square root of the average of the squared deviations
+    between the investment’s returns and the benchmark’s returns
+
+    Since these calcs are all related, it returns a tuple of tracking error, active premium and information ratio
+    :param manager: the manager
+    :param benchmark: the benchmark
+    :return: tuple (tracking error, active premium, information ratio)
+    """
+    df = create_capm_frame(manager, benchmark)
     m = df[df.columns[0]].values
     b = df[df.columns[1]].values
     diff = m - b
-    te = np.sqrt(np.mean(diff**2))
-    return te
+    te = np.sqrt(np.mean(diff ** 2))
+    ap = np.mean(diff)
+    ir = ap / np.std(diff)
+    return (te, ap, ir)
 
 
+def sharpe_ratio(manager, rF):
+    df = create_sharpe_frame(manager, rF)
+    m = df[df.columns[0]].values
+    r = df[df.columns[1]].values
+    sharpe = np.mean((m - r)) / np.std((m-r))
+    return sharpe
+
+
+def treynor_ratio(manager, index, rF):
+    beta = capm(manager, index, rF)[1]
+    df = create_sharpe_frame(manager, rF)
+    m = df[df.columns[0]].values
+    r = df[df.columns[1]].values
+    treynor = np.mean((m - r)) / beta
+    return treynor
+
+def sortino_ratio(manager,rF):
+    df = create_sharpe_frame(manager, rF)
+    df = df[df[df.columns[0]] <= 0]
+    m = df[df.columns[0]].values
+    r = df[df.columns[1]].values
+    sr = np.mean((m - r)) / np.std(m-r)
+    return sr

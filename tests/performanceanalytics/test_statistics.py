@@ -108,7 +108,28 @@ def test_correl(series):
 def test_te(series):
     manager = series[series.columns[0]]
     index = series[series.columns[7]]
-    te = statistics.tracking_error(manager,index)
+    te, ap, ir = statistics.tracking_error(manager,index)
     assert te == pytest.approx(0.0326,abs=MINE)
+    assert ap == pytest.approx(0.0024, abs=MINE)
+    assert ir == pytest.approx(0.0755, abs=MINE)
+
+def test_annualized_return(series):
+    data = series[series.columns[0]]
+    ar = statistics.annualized_return(data)
+    assert ar == pytest.approx(0.1386,abs=MINE)
+
+def test_sharpelike(series):
+    manager = series[series.columns[0]]
+    index = series[series.columns[7]]
+    rf = series[series.columns[9]]
+    sharpe = statistics.sharpe_ratio(manager,rf)
+    tr = statistics.treynor_ratio(manager,index,rf)
+    sr = statistics.sortino_ratio(manager,rf)
+
+    assert sharpe == pytest.approx(0.3094,abs=MINE)
+    assert tr == pytest.approx(0.0202,abs=MINE)
+    assert sr == pytest.approx(-1.0975, abs=MINE)
+
+
 
 
