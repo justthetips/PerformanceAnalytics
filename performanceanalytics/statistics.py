@@ -63,3 +63,61 @@ def mean_confidence_interval(data, confidence=0.95):
     m, se = np.mean(a), scipy.stats.sem(a)
     h = se * sp.stats.t._ppf((1 + confidence) / 2., n - 1)
     return m, m - h, m + h
+
+
+def create_capm_frame(manager,index,rf=None):
+    # lets check to make sure manager and index are pandas series
+    if not isinstance(manager,pd.Series):
+        raise ValueError("Manager series must be a pandas series")
+    if not isinstance(index,pd.Series):
+        raise ValueError("Index series must be a pandas series")
+    if (rf is not None) and (not isinstance(rf,pd.Series)):
+        raise ValueError("Risk Free must either be none or a pandas series")
+
+    #check for lengths, we do this befor the na's
+    if manager.size != index.size:
+        raise ValueError("Manager and Index must be the same size, you passed in {} and {}".format(manager.size,index.size))
+    if (rf is not None) and (manager.size != rf.size):
+        raise ValueError("Manager and RF must be the same size, you passed in {} and {}".format(manager.size, index.size))
+
+
+
+    #if the risk free is None, create a risk free series of 0
+    if rf is None:
+        rf_data = [0.0] * len(manager)
+        rf = pd.Series(rf_data,index=manager.index)
+
+
+    #drop the na's and join to make sure they have the same valid length
+    manager = manager.dropna()
+    index = index.dropna()
+    rf = rf.dropna()
+    df = pd.concat([manager,index,rf],axis=1,join='inner')
+
+    #return the df
+    return df
+
+def capm(manager,index,rf=None):
+    df = create_capm_frame(manager,index,rf)
+
+    #now that we have the dataframe, we subtract the rf from the manager and the index
+    manager_adj = df[df.columns[0]] - df[df.columns[2]]
+    index_adj = df[df.columns[1]] - df[df.columns[2]]
+
+    #use numpy linalg to calculate the terms
+    x = index_adj.values
+    y = manager_adj.values
+    A = np.vstack([x, np.ones(len(x))]).T
+
+    m, c = np.linalg.lstsq(A, y)[0]
+
+    r2 = np.corrcoef(x,y)[0][1] ** 2
+
+    #return as a tuple
+    return (c, m, r2)
+
+
+
+
+
+

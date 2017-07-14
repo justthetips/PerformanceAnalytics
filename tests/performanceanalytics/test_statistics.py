@@ -24,16 +24,27 @@ import pytest
 
 from performanceanalytics import statistics
 
+# test tolerance, yes calling it mine is a holdout from my bond trading days
+MINE = .0001
+
 def test_geomean_simple():
     assert statistics.geo_mean([2,18])==6
-    assert statistics.geo_mean([10,51.2,8]) == pytest.approx(16,.000001)
-    assert statistics.geo_mean([1,3,9,27,81]) == pytest.approx(9,.000001)
+    assert statistics.geo_mean([10,51.2,8]) == pytest.approx(16,abs=MINE)
+    assert statistics.geo_mean([1,3,9,27,81]) == pytest.approx(9,abs=MINE)
 
 
 def test_geomean_timeseries(series):
     dv = series[series.columns[0]].values
     dv2 = series[series.columns[1]].values
-    assert statistics.geo_mean_return(dv) == pytest.approx(0.0108,.001)
-    assert statistics.geo_mean_return(dv2) == pytest.approx(0.0135, .001)
+    assert statistics.geo_mean_return(dv) == pytest.approx(0.0108,abs=MINE)
+    assert statistics.geo_mean_return(dv2) == pytest.approx(0.0135, abs=MINE)
 
+def test_capm(series):
+    manager = series[series.columns[0]]
+    index = series[series.columns[7]]
+    rf = series[series.columns[9]]
+    alpha, beta, r2 = statistics.capm(manager,index)
+    assert alpha == pytest.approx(0.0077,abs=MINE)
+    assert beta == pytest.approx(0.3906,abs=MINE)
+    assert r2 == pytest.approx(0.4356,abs=MINE)
 
