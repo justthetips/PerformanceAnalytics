@@ -233,7 +233,7 @@ def correl_calc(df):
     return c, p
 
 
-def tracking_error(manager, benchmark):
+def tracking_error(manager, benchmark, *args, **kwargs):
     """
     calculate the tracking error of a manager and the benchmark.
     Tracking error is calculated by taking the square root of the average of the squared deviations

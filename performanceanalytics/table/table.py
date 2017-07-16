@@ -23,8 +23,9 @@
 
 import pandas as pd
 import os
-from collections import namedtuple
+import collections
 from performanceanalytics.statistics import geo_mean_return, mean_confidence_interval
+import performanceanalytics.statistics as pas
 
 
 def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False):
@@ -132,12 +133,9 @@ def stats_table(data_series, manager_col=0, other_cols=None):
     st_data['Skewness'] = [x.Skew for x in st]
     st_data['Kurtosis'] = [x.Kurt for x in st]
 
-    df = pd.DataFrame.from_dict(st_data,orient='index')
-    #rename the columns
-    col_name_dict = {}
-    for counter,old_name in enumerate(df.columns.tolist()):
-        col_name_dict[old_name] = colnames[counter]
-    df.rename(columns=col_name_dict,inplace=True)
+    df = pd.DataFrame.from_dict(st_data, orient='index')
+    # rename the columns
+    df = replace_col_names(df,colnames)
 
     return df
 
@@ -151,8 +149,8 @@ def series_stats(data_series):
     if not isinstance(data_series, pd.Series):
         raise ValueError("Must be a Pandas Series")
 
-    SContainer = namedtuple('SContainer',
-                            'Observations NAs Minimum Quartile1 Median aMean gMean Quartile3 Maximum seMean lclMean uclMean Variance Stdev Skew Kurt')
+    SContainer = collections.namedtuple('SContainer',
+                                        'Observations NAs Minimum Quartile1 Median aMean gMean Quartile3 Maximum seMean lclMean uclMean Variance Stdev Skew Kurt')
 
     SContainer.Observations = data_series.count()
     SContainer.NAs = data_series.isnull().sum()
@@ -171,7 +169,72 @@ def series_stats(data_series):
     return SContainer
 
 
+def capm_table(data_series, manager_cols, index_col, rf_col):
+    # check to make sure nothing is missing
+    if index_col is None:
+        raise ValueError("Index Column cannot be blank")
+    if isinstance(index_col, collections.Iterable):
+        raise ValueError("Index Column must be a single value")
+    if manager_cols is None:
+        raise ValueError("Manager column cannot be None")
+    if not isinstance(manager_cols, collections.Iterable):
+        manager_cols = [manager_cols]
+    if rf_col is None:
+        raise ValueError("Risk free column cannot be None")
+    if isinstance(rf_col, collections.Iterable):
+        raise ValueError("Risk free column must be a single value")
+
+    # now create lists of the data points by comparing the manager to each comparison
+    st_data = {}
+    st_data['Alpha'] = [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols]
+    st_data['Beta'] = [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols]
+    st_data['Beta+'] = [pas.capm_upper(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols]
+    st_data['Beta-'] = [pas.capm_lower(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols]
+    st_data['R2'] = [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[2] for x in manager_cols]
+    st_data['Correlation'] = [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols]
+    st_data['Correlation p-value'] = [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
+                                      manager_cols]
+    st_data['Tracking Error'] = [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[0] for x in
+                                 manager_cols]
+    st_data['Active Premium'] = [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
+                                 manager_cols]
+    st_data['Information Ratio'] = [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[2] for x in
+                                    manager_cols]
+    st_data['Treynor Ratio'] = [pas.treynor_ratio(*parse_cols(data_series, x, index_col, rf_col)) for x in manager_cols]
+
+    df = pd.DataFrame.from_dict(st_data, orient='index')
+
+    # replace the column names
+    colnames = [' vs '.join([data_series.columns[x], data_series.columns[index_col]]) for x in manager_cols]
+    # rename the columns
+    df = replace_col_names(df, colnames)
+
+    return df
+
+
+def parse_cols(data, mc, ic, rfc):
+    m = data[data.columns[mc]]
+    i = data[data.columns[ic]]
+    rf = data[data.columns[rfc]]
+    return (m, i, rf)
+
+
+def replace_col_names(df, colnames, inplace=True):
+    if len(df.columns) != len(colnames):
+        raise (
+        "You must pass in the same number of column names as there are columns.  Column Size={}, Array Size={}".format(
+            len(df.columns), len(colnames)))
+    #create a dictionary to store position and name
+    colname_dict = {}
+    for counter, oldname in enumerate(df.columns.tolist()):
+        colname_dict[oldname] = colnames[counter]
+    df.rename(columns=colname_dict, inplace=inplace)
+    return df
+
+
+
 base_path = os.path.abspath(os.getcwd())
 data_file = os.path.join(base_path, 'data', 'managers.csv')
 series = pd.read_csv(data_file, index_col=0, parse_dates=[0])
-stats_table(series,manager_col=0,other_cols=[1,2,3,4])
+df = capm_table(series, [0, 1, 2, 3, 4, 5], 7, 9)
+print (df.applymap('{:,.3f}'.format))
