@@ -53,7 +53,7 @@ def annualized_return(data):
     total_return = ((1 + data).cumprod())[-1]
     s_date = data.index.min()
     e_date = data.index.max()
-    t = ((e_date - s_date).days) / 365.25
+    t = (e_date - s_date).days / 365.25
     ar = (total_return ** (1 / t)) - 1
     return ar
 
@@ -140,7 +140,8 @@ def create_sharpe_frame(manager, rf):
 
 def capm(manager, index, rf=None):
     """
-    calculate the CAPM parameters for the manager, and the index.  If the rf series is passed in, it will be subtracted from each
+    calculate the CAPM parameters for the manager, and the index.  If the rf series is passed in,
+    it will be subtracted from each
     :param manager: the manager time series
     :param index: the index time series
     :param rf: optional rf time series.
@@ -198,7 +199,7 @@ def capm_calc(df):
     r2 = np.corrcoef(x, y)[0][1] ** 2
 
     # return as a tuple
-    return (c, m, r2)
+    return c, m, r2
 
 
 def correl(manager, index, rf=None):
@@ -233,7 +234,7 @@ def correl_calc(df):
     return c, p
 
 
-def tracking_error(manager, benchmark):
+def tracking_error(manager, benchmark, *args, **kwargs):
     """
     calculate the tracking error of a manager and the benchmark.
     Tracking error is calculated by taking the square root of the average of the squared deviations
@@ -251,14 +252,14 @@ def tracking_error(manager, benchmark):
     te = np.sqrt(np.mean(diff ** 2))
     ap = np.mean(diff)
     ir = ap / np.std(diff)
-    return (te, ap, ir)
+    return te, ap, ir
 
 
 def sharpe_ratio(manager, rF):
     df = create_sharpe_frame(manager, rF)
     m = df[df.columns[0]].values
     r = df[df.columns[1]].values
-    sharpe = np.mean((m - r)) / np.std((m-r))
+    sharpe = np.mean((m - r)) / np.std((m - r))
     return sharpe
 
 
@@ -270,10 +271,11 @@ def treynor_ratio(manager, index, rF):
     treynor = np.mean((m - r)) / beta
     return treynor
 
-def sortino_ratio(manager,rF):
+
+def sortino_ratio(manager, rF):
     df = create_sharpe_frame(manager, rF)
     df = df[df[df.columns[0]] <= 0]
     m = df[df.columns[0]].values
     r = df[df.columns[1]].values
-    sr = np.mean((m - r)) / np.std(m-r)
+    sr = np.mean((m - r)) / np.std(m - r)
     return sr

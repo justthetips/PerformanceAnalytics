@@ -44,12 +44,12 @@ class SeriesHolder(object):
         """
         self._series = series
         # make sure there is only one manager
-        if not isinstance(manager_col,int):
+        if not isinstance(manager_col, int):
             raise ValueError(
                 "You can only specify a single column for managers, you specified {}".format(len(manager_col)))
         self._manager_col = manager_col
         # make sure there is only one risk free rate
-        if not isinstance(rf_col,int):
+        if not isinstance(rf_col, int):
             raise ValueError(
                 "You can only specify a single column for the rf rate, you specified {}".format(len(rf_col)))
         self._rf_col = rf_col
