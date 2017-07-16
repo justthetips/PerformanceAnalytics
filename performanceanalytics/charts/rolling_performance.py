@@ -43,12 +43,11 @@ def create_rollingperformance(data, width, rF=0, annual_factor=12.0, **kwargs):
     s = (r - rF) / v
 
     # create the plots
-    f, axarr = plt.subplots(3, sharex=True)
+    f, axarr = plt.subplots(3, sharex=True, figsize=kwargs.pop('figsize',(8,6)))
     axarr[0].plot(r)
     axarr[1].plot(v)
     axarr[2].plot(s)
 
-    f.set_size_inches(kwargs.pop('figsize', (8, 6)))
 
     # title and legend
     f.suptitle(kwargs.pop('title', 'Rolling Performance Summary'))
