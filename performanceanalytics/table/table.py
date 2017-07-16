@@ -99,9 +99,6 @@ def stats_table(data_series, manager_col=0, other_cols=None):
     if other_cols is not None:
         other_stats = [series_stats(data_series[data_series.columns[x]]) for x in other_cols]
     # row names
-    rows = ['Observations', 'NAs', 'Minimum', 'Quartile 1', 'Median', 'Artithmetic Mean', 'Geometric Mean',
-            'Quartile 3', 'Maximum', 'SE Mean', 'LCL Mean (.95)', 'UCL Mean (.95)', 'Variance', 'Stdev', 'Skewness',
-            'Kurtosis']
     # pandas is great, but renaming columns is a pain, this creates a list of column names
     cols = data_series.columns.tolist()
     colnames = [cols[manager_col]]
@@ -112,30 +109,21 @@ def stats_table(data_series, manager_col=0, other_cols=None):
     # create a list of stats objects
     st = [manager_stats]
     # append other stats if any
-    for os in other_stats:
-        st.append(os)
+    for ots in other_stats:
+        st.append(ots)
     # create a dictionary to build the dataframe
-    st_data = {}
-    st_data['Observations'] = [x.Observations for x in st]
-    st_data['NAs'] = [x.NAs for x in st]
-    st_data['Minimum'] = [x.Minimum for x in st]
-    st_data['Quartile 1'] = [x.Quartile1 for x in st]
-    st_data['Median'] = [x.Median for x in st]
-    st_data['Artithmetic Mean'] = [x.aMean for x in st]
-    st_data['Geometric Mean'] = [x.gMean for x in st]
-    st_data['Quartile 3'] = [x.Quartile3 for x in st]
-    st_data['Maximum'] = [x.Maximum for x in st]
-    st_data['SE Mean'] = [x.seMean for x in st]
-    st_data['LCL Mean (.95)'] = [x.lclMean for x in st]
-    st_data['UCL Mean (.95)'] = [x.uclMean for x in st]
-    st_data['Variance'] = [x.Variance for x in st]
-    st_data['Stdev'] = [x.Stdev for x in st]
-    st_data['Skewness'] = [x.Skew for x in st]
-    st_data['Kurtosis'] = [x.Kurt for x in st]
+    st_data = {'Observations': [x.Observations for x in st], 'NAs': [x.NAs for x in st],
+               'Minimum': [x.Minimum for x in st], 'Quartile 1': [x.Quartile1 for x in st],
+               'Median': [x.Median for x in st], 'Artithmetic Mean': [x.aMean for x in st],
+               'Geometric Mean': [x.gMean for x in st], 'Quartile 3': [x.Quartile3 for x in st],
+               'Maximum': [x.Maximum for x in st], 'SE Mean': [x.seMean for x in st],
+               'LCL Mean (.95)': [x.lclMean for x in st], 'UCL Mean (.95)': [x.uclMean for x in st],
+               'Variance': [x.Variance for x in st], 'Stdev': [x.Stdev for x in st], 'Skewness': [x.Skew for x in st],
+               'Kurtosis': [x.Kurt for x in st]}
 
     df = pd.DataFrame.from_dict(st_data, orient='index')
     # rename the columns
-    df = replace_col_names(df,colnames)
+    df = replace_col_names(df, colnames)
 
     return df
 
@@ -185,22 +173,22 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
         raise ValueError("Risk free column must be a single value")
 
     # now create lists of the data points by comparing the manager to each comparison
-    st_data = {}
-    st_data['Alpha'] = [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols]
-    st_data['Beta'] = [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols]
-    st_data['Beta+'] = [pas.capm_upper(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols]
-    st_data['Beta-'] = [pas.capm_lower(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols]
-    st_data['R2'] = [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[2] for x in manager_cols]
-    st_data['Correlation'] = [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols]
-    st_data['Correlation p-value'] = [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
-                                      manager_cols]
-    st_data['Tracking Error'] = [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[0] for x in
-                                 manager_cols]
-    st_data['Active Premium'] = [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
-                                 manager_cols]
-    st_data['Information Ratio'] = [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[2] for x in
-                                    manager_cols]
-    st_data['Treynor Ratio'] = [pas.treynor_ratio(*parse_cols(data_series, x, index_col, rf_col)) for x in manager_cols]
+    st_data = {'Alpha': [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols],
+               'Beta': [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols],
+               'Beta+': [pas.capm_upper(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols],
+               'Beta-': [pas.capm_lower(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols],
+               'R2': [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[2] for x in manager_cols],
+               'Correlation': [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols],
+               'Correlation p-value': [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
+                                       manager_cols],
+               'Tracking Error': [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[0] for x in
+                                  manager_cols],
+               'Active Premium': [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
+                                  manager_cols],
+               'Information Ratio': [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[2] for x in
+                                     manager_cols],
+               'Treynor Ratio': [pas.treynor_ratio(*parse_cols(data_series, x, index_col, rf_col)) for x in
+                                 manager_cols]}
 
     df = pd.DataFrame.from_dict(st_data, orient='index')
 
@@ -216,15 +204,15 @@ def parse_cols(data, mc, ic, rfc):
     m = data[data.columns[mc]]
     i = data[data.columns[ic]]
     rf = data[data.columns[rfc]]
-    return (m, i, rf)
+    return m, i, rf
 
 
 def replace_col_names(df, colnames, inplace=True):
     if len(df.columns) != len(colnames):
         raise (
-        "You must pass in the same number of column names as there are columns.  Column Size={}, Array Size={}".format(
-            len(df.columns), len(colnames)))
-    #create a dictionary to store position and name
+            "You must pass in the same number of column names as there are columns.  Column Size={}, Array Size={}".format(
+                len(df.columns), len(colnames)))
+    # create a dictionary to store position and name
     colname_dict = {}
     for counter, oldname in enumerate(df.columns.tolist()):
         colname_dict[oldname] = colnames[counter]
