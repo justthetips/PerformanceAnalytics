@@ -230,11 +230,3 @@ def replace_col_names(df, colnames, inplace=True):
         colname_dict[oldname] = colnames[counter]
     df.rename(columns=colname_dict, inplace=inplace)
     return df
-
-
-
-base_path = os.path.abspath(os.getcwd())
-data_file = os.path.join(base_path, 'data', 'managers.csv')
-series = pd.read_csv(data_file, index_col=0, parse_dates=[0])
-df = capm_table(series, [0, 1, 2, 3, 4, 5], 7, 9)
-print (df.applymap('{:,.3f}'.format))
