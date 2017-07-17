@@ -21,10 +21,7 @@
 # SOFTWARE.
 
 
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import os
 
 
 def boxplot(data, manager_col=0, other_cols=None, **kwargs):

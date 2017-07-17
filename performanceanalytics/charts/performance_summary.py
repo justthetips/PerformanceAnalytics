@@ -20,12 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import performanceanalytics.statistics as pas
-import os
 
 
 def create_performance_summary(data, manager_col=0, other_cols=None, **kwargs):
@@ -39,7 +35,7 @@ def create_performance_summary(data, manager_col=0, other_cols=None, **kwargs):
     :return: the chart
     """
     # create the grid
-    f = plt.figure(figsize=kwargs.pop('figsize',(8,6)))
+    f = plt.figure(figsize=kwargs.pop('figsize', (8, 6)))
     # set height ratios for sublots
     gs = gridspec.GridSpec(3, 1, height_ratios=[2, 1, 1])
     ax0 = plt.subplot(gs[0])

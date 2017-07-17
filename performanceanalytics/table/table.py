@@ -21,11 +21,13 @@
 # SOFTWARE.
 
 
-import pandas as pd
-import os
 import collections
-from performanceanalytics.statistics import geo_mean_return, mean_confidence_interval
+
+import pandas as pd
+
+import performanceanalytics.drawdowns as pad
 import performanceanalytics.statistics as pas
+from performanceanalytics.statistics import geo_mean_return, mean_confidence_interval
 
 
 def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False):
@@ -198,6 +200,36 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
     df = replace_col_names(df, colnames)
 
     return df
+
+
+def drawdown_table(data_series, trivial_dd=-0.02):
+    """
+    create a table of drawdowns.  the table shows the start, the trough, the end, the depth, the length, to trough
+    and recovery.  those last three are in days
+    :param data_series: the data series
+    :param trivial_dd: drawdowns less than this are ignored, 2% by default
+    :return: the table
+    """
+    drawdowns = pad.find_drawdowns(data_series)
+    drawdowns = [x for x in drawdowns if x.depth <= trivial_dd]
+    drawdowns = sorted(drawdowns)
+    dd_list = []
+    for dd in drawdowns:
+        dd_list.append(dd_to_dict(dd))
+    dd_frame = pd.DataFrame(dd_list)
+    dd_frame = dd_frame[['From', 'Trough', 'End', 'Depth', 'Length', 'To Trough', 'Recovery']]
+    return dd_frame
+
+
+def dd_to_dict(dd):
+    """
+    turn the drawdown object into a dict
+    :param dd: the dd object
+    :return: a dictionary
+    """
+    ddict = {'From': dd.start_date, 'Trough': dd.trough_date, 'End': dd.end_date, 'Depth': dd.depth, 'Length': dd.length,
+            'To Trough': dd.to_trough, 'Recovery': dd.recovery}
+    return ddict
 
 
 def parse_cols(data, mc, ic, rfc):

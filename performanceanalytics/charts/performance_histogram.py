@@ -20,12 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import os
-from matplotlib import gridspec
 import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy import stats
 
 
@@ -47,25 +44,25 @@ def create_histogram(data, manager_col=0, **kwargs):
 
     ax1.hist(x=df, bins=bins)
     # we need the kde for the second chart
-    n,b,p = ax2.hist(x=df, bins=bins)
+    n, b, p = ax2.hist(x=df, bins=bins)
     density = stats.gaussian_kde(df)
     kde_y = density(b)
-    ax2.plot(b,kde_y,'--', linewidth=2)
+    ax2.plot(b, kde_y, '--', linewidth=2)
     # now a normal line
     normal_y = mlab.normpdf(b, mu, sigma)
-    ax2.plot(b,normal_y,'--', linewidth=2)
+    ax2.plot(b, normal_y, '--', linewidth=2)
     # third chart
-    ax3.hist(x=df,bins=bins)
-    normal_y2 = mlab.normpdf(b,0,sigma)
-    ax3.plot(b,normal_y2,'--', linewidth=2)
+    ax3.hist(x=df, bins=bins)
+    normal_y2 = mlab.normpdf(b, 0, sigma)
+    ax3.plot(b, normal_y2, '--', linewidth=2)
     # fourth chart
-    ax4.hist(x=df,bins=bins)
-    var_line = np.percentile(df,5)
-    ax4.axvline(x=var_line,linestyle='--')
-    ax4.text(x=var_line,y=ax4.get_yticks().max()*.9,s="VaR",rotation='vertical')
+    ax4.hist(x=df, bins=bins)
+    var_line = np.percentile(df, 5)
+    ax4.axvline(x=var_line, linestyle='--')
+    ax4.text(x=var_line, y=ax4.get_yticks().max() * .9, s="VaR", rotation='vertical')
 
     # time to pretty things up
-    ax_list = [ax1,ax2,ax3,ax4]
+    ax_list = [ax1, ax2, ax3, ax4]
     for ax in ax_list:
         ax.set_xlabel("Returns")
         x_t = ax.get_xticks()
@@ -77,6 +74,4 @@ def create_histogram(data, manager_col=0, **kwargs):
 
     f.suptitle(kwargs.pop('title', 'Return Distribution For {}'.format(data.columns[manager_col])))
 
-
     return plt
-

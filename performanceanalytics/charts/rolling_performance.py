@@ -20,11 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import performanceanalytics.statistics as pas
-import os
+import numpy as np
 
 
 def create_rollingperformance(data, width, rF=0, annual_factor=12.0, **kwargs):
@@ -43,11 +40,10 @@ def create_rollingperformance(data, width, rF=0, annual_factor=12.0, **kwargs):
     s = (r - rF) / v
 
     # create the plots
-    f, axarr = plt.subplots(3, sharex=True, figsize=kwargs.pop('figsize',(8,6)))
+    f, axarr = plt.subplots(3, sharex=True, figsize=kwargs.pop('figsize', (8, 6)))
     axarr[0].plot(r)
     axarr[1].plot(v)
     axarr[2].plot(s)
-
 
     # title and legend
     f.suptitle(kwargs.pop('title', 'Rolling Performance Summary'))
