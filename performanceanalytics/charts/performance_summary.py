@@ -20,43 +20,47 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import performanceanalytics.statistics as pas
-import os
 
 
 def create_performance_summary(data, manager_col=0, other_cols=None, **kwargs):
+    """
+    create a three paneled chart, top panel is cumulative return for the manager and any
+    other series you want.
+    :param data: the raw data
+    :param manager_col: the column with the main manager (defaults to 0)
+    :param other_cols: array of columns with other series to chart (defaults to None)
+    :param kwargs: other overwrides for chart
+    :return: the chart
+    """
     # create the grid
-    f = plt.figure()
+    f = plt.figure(figsize=kwargs.pop('figsize', (8, 6)))
     # set height ratios for sublots
-    gs = gridspec.GridSpec(3,1,height_ratios=[2,1,1])
+    gs = gridspec.GridSpec(3, 1, height_ratios=[2, 1, 1])
     ax0 = plt.subplot(gs[0])
-    ax1 = plt.subplot(gs[1],sharex=ax0)
-    ax2 = plt.subplot(gs[2],sharex=ax1)
+    ax1 = plt.subplot(gs[1], sharex=ax0)
+    ax2 = plt.subplot(gs[2], sharex=ax1)
 
-    #the first chart
+    # the first chart
     ax1_cols = [manager_col]
     if other_cols is not None:
         for oc in other_cols:
             ax1_cols.append(oc)
 
     df1 = data[data.columns[ax1_cols]]
-    cp = ((1+df1).cumprod()) - 1
+    cp = ((1 + df1).cumprod()) - 1
     ax0.plot(cp)
 
-    #the second chart
+    # the second chart
     df2 = data[data.columns[manager_col]]
-    ax1.bar(df2.index.values,df2.values,align="center",width=20)
+    ax1.bar(df2.index.values, df2.values, align="center", width=20)
 
-    #the third chart
-    dd_series = df1.apply(dd,0)
+    # the third chart
+    dd_series = df1.apply(dd, 0)
     ax2.plot(dd_series)
 
-    #now pretty it up
-    f.set_size_inches(kwargs.pop('figsize', (8, 6)))
+    # now pretty it up
 
     # title and legend
     f.suptitle(kwargs.pop('title', '{} Rolling Performance Summary'.format(data.columns[manager_col])))
@@ -77,18 +81,11 @@ def create_performance_summary(data, manager_col=0, other_cols=None, **kwargs):
     ax1.set_yticklabels(['{:0.1f}%'.format(x * 100) for x in ax_v])
     ax2.set_yticklabels(['{:0.1f}%'.format(x * 100) for x in ax_s])
 
-
     return plt
 
+
 def dd(series):
-    cr = ((1+series).cumprod())
+    cr = ((1 + series).cumprod())
     rm = cr.expanding(min_periods=1).max()
     ddown = (cr / rm) - 1
     return ddown
-
-
-
-base_path = os.path.abspath(os.getcwd())
-data_file = os.path.join(base_path, 'data', 'managers.csv')
-series = pd.read_csv(data_file, index_col=0, parse_dates=[0])
-create_performance_summary(series,0,[2,3])
