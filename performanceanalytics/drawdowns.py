@@ -223,3 +223,10 @@ class DrawdownHolder(object):
 
     def __ne__(self, other):
         return self.start_date != other.start_date or self.trough_date == other.trough_date or self.end_date == other.end_date
+
+def maxDrawDown(series):
+    if not isinstance(series, pd.Series):
+        raise ValueError("Only works for Pandas Series, you passed in {}".format(type(series)))
+    cum_returns = (1 + series).cumprod()
+    drawdown = 1 - cum_returns.div(cum_returns.cummax())
+    return - drawdown.max()

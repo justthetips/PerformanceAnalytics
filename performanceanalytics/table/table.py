@@ -22,8 +22,10 @@
 
 
 import collections
+import os
 
 import pandas as pd
+import numpy as np
 
 import performanceanalytics.drawdowns as pad
 import performanceanalytics.statistics as pas
@@ -227,8 +229,9 @@ def dd_to_dict(dd):
     :param dd: the dd object
     :return: a dictionary
     """
-    ddict = {'From': dd.start_date, 'Trough': dd.trough_date, 'End': dd.end_date, 'Depth': dd.depth, 'Length': dd.length,
-            'To Trough': dd.to_trough, 'Recovery': dd.recovery}
+    ddict = {'From': dd.start_date, 'Trough': dd.trough_date, 'End': dd.end_date, 'Depth': dd.depth,
+             'Length': dd.length,
+             'To Trough': dd.to_trough, 'Recovery': dd.recovery}
     return ddict
 
 
@@ -250,3 +253,67 @@ def replace_col_names(df, colnames, inplace=True):
         colname_dict[oldname] = colnames[counter]
     df.rename(columns=colname_dict, inplace=inplace)
     return df
+
+
+def create_downside_table(data, managercols, MAR=.02, rf=.005):
+    # first see if managercols is a single
+    if not isinstance(managercols, collections.Iterable):
+        managercols = [managercols]
+
+    colnames = []
+    dstats = []
+
+    for managercol in managercols:
+        colnames.append(data.columns[managercol])
+        dstats.append(downside_stats(data[data.columns[managercol]], MAR, rf))
+
+    st_data = {'Semi Deviation': [x.semi for x in dstats],
+               'Gain Deviation': [x.gain for x in dstats],
+               'Loss Deviation': [x.loss for x in dstats],
+               'Downside Deviation (MAR={0:.1f}%)'.format(MAR * 100): [x.ddmar for x in dstats],
+               'Downside Deviation (rf={0:.1f}%)'.format(rf * 100): [x.ddrf for x in dstats],
+               'Downside Deviation (0%)': [x.ddzero for x in dstats],
+               'Maximum Drawdown': [x.mdd for x in dstats],
+               'Historical VaR (95%)': [x.hvar for x in dstats],
+               'Historical ES (95%)': [x.hes for x in dstats],
+               'Modified VaR (95%)': [x.mvar for x in dstats],
+               'Modified ES (95%)': [x.mes for x in dstats]
+               }
+
+
+    df = pd.DataFrame.from_dict(st_data, orient='index')
+    # rename the columns
+    df = replace_col_names(df, colnames)
+    return df
+
+
+def downside_stats(series, MAR, rf):
+    if not isinstance(series, pd.Series):
+        raise ValueError("Must be a Pandas Series")
+
+    dContainer = collections.namedtuple('dContainer', 'semi gain loss ddmar ddrf ddzero mdd hvar hes mvar mes')
+
+    marSeries = pas.downside_df(series, 0, MAR)
+    rfSeries = pas.downside_df(series, 0, rf)
+    lossSeries = pas.downside_df(series, 0, 0)
+    semiSeries = pas.downside_df(series, 0, 'semi')
+    gainSeries = pas.upside_df(series, 0, 0)
+
+    dContainer.semi = semiSeries.std()
+    dContainer.gain = gainSeries.std()
+    dContainer.loss = lossSeries.std()
+    dContainer.ddmar = marSeries.std()
+    dContainer.ddrf = rfSeries.std()
+    dContainer.ddzero = lossSeries.std()
+    dContainer.mdd = pad.maxDrawDown(series)
+    dContainer.hvar = series.quantile(.05)
+    dContainer.hes = marSeries.quantile(.05)
+    dContainer.mvar = pas.mvar(series)
+    dContainer.mes = pas.mvar(marSeries)
+    return dContainer
+
+
+base_path = os.path.abspath(os.getcwd())
+data_file = os.path.join(base_path, 'data', 'managers.csv')
+series = pd.read_csv(data_file, index_col=0, parse_dates=[0])
+print(create_downside_table(series,[0,1,2,3,4]))

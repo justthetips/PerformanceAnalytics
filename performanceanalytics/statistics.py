@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import scipy.stats
+import numbers
 from functools import reduce
 
 
@@ -280,3 +281,72 @@ def sortino_ratio(manager, rF):
     r = df[df.columns[1]].values
     sr = np.mean((m - r)) / np.std(m - r)
     return sr
+
+def downside_df(data, managerCol, threshold):
+    """
+    create a lower distribution for the data frame based on the manager column and
+    the threshold.  The threshold should be a number, meaning the mimimal acceptable return
+    or the word 'semi' for the semi distribution (ie, the return is less than the avergage return
+    :param data: the data
+    :param managerCol: the manager col
+    :param threshold: the threshold (float or 'semi')
+    :return: the adjusted dataframe
+    """
+
+    test = 0
+    if isinstance(threshold,numbers.Real):
+        test = threshold
+    elif threshold == 'semi':
+        if isinstance(data, pd.Series):
+            test = np.mean(data)
+        else:
+            test = np.mean(data[data.column[managerCol]])
+    else:
+        raise ValueError("threshold must be a number or semi, {} was passed in".format(threshold))
+
+    if isinstance(data,pd.Series):
+        df = data.clip_lower(test)
+    else:
+        df = data[data[data.columns[managerCol]] <= test]
+    return df
+
+def upside_df(data, managerCol, threshold):
+    """
+    create a upper distribution for the data frame based on the manager column and
+    the threshold.  The threshold should be a number, meaning the mimimal acceptable return
+    or the word 'semi' for the semi distribution (ie, the return is less than the avergage return
+    :param data: the data
+    :param managerCol: the manager col
+    :param threshold: the threshold (float or 'semi')
+    :return: the adjusted dataframe
+    """
+
+    test = 0
+    if isinstance(threshold,numbers.Real):
+        test = threshold
+    elif threshold == 'semi':
+        if isinstance(data, pd.Series):
+            test = np.mean(data)
+        else:
+            test = np.mean(data[data.column[managerCol]])
+    else:
+        raise ValueError("threshold must be a number or semi, {} was passed in".format(threshold))
+
+    if isinstance(data,pd.Series):
+        df = data.clip_upper(test)
+    else:
+        df = data[data[data.columns[managerCol]] >= test]
+
+    return df
+
+
+
+def mvar(series, zc = .05):
+    mu = np.mean(series)
+    sigma = np.std(series)
+    skew = scipy.stats.skew(series)
+    kurt = scipy.stats.kurtosis(series)
+
+    Z = (zc+(((1/6)*(zc**2 -1))*skew)+(((1/24)*(zc**3-(3*zc)))*kurt)-(((1/36)*((2*zc)**3-(5*zc)))*(skew**2)))
+    calc = mu - (Z*sigma)
+    return calc
