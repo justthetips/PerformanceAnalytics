@@ -26,6 +26,7 @@ import os
 
 import pandas as pd
 import numpy as np
+from scipy.stats import sem, skew, kurtosis
 
 import performanceanalytics.drawdowns as pad
 import performanceanalytics.statistics as pas
@@ -97,11 +98,11 @@ def stats_table(data_series, manager_col=0, other_cols=None):
     :param other_cols: an optional list of other series to run stats on
     :return: the table
     """
-    manager_stats = series_stats(data_series[data_series.columns[manager_col]])
+    manager_stats = series_stats(data_series,manager_col)
     other_stats = []
     # check to see if there are other series to run on
     if other_cols is not None:
-        other_stats = [series_stats(data_series[data_series.columns[x]]) for x in other_cols]
+        other_stats = [series_stats(data_series,x) for x in other_cols]
     # row names
     # pandas is great, but renaming columns is a pain, this creates a list of column names
     cols = data_series.columns.tolist()
@@ -132,32 +133,33 @@ def stats_table(data_series, manager_col=0, other_cols=None):
     return df
 
 
-def series_stats(data_series):
+def series_stats(data, manager_col):
     """
     takes a single panda series and returns a named tuple with all the stats for the stats table
     :param data_series: the single pandas series
     :return: a named tuple with all the values
     """
-    if not isinstance(data_series, pd.Series):
-        raise ValueError("Must be a Pandas Series")
+
+    m_data = data[data.columns[manager_col]]
+    m_data_clean = pas.extract_returns_rf(data, manager_col)[0]
 
     SContainer = collections.namedtuple('SContainer',
                                         'Observations NAs Minimum Quartile1 Median aMean gMean Quartile3 Maximum seMean lclMean uclMean Variance Stdev Skew Kurt')
 
-    SContainer.Observations = data_series.count()
-    SContainer.NAs = data_series.isnull().sum()
-    SContainer.Minimum = data_series.min()
-    SContainer.Quartile1 = data_series.quantile(.25)
-    SContainer.Median = data_series.median()
-    SContainer.gMean = geo_mean_return(data_series)
-    SContainer.Quartile3 = data_series.quantile(.75)
-    SContainer.Maximum = data_series.max()
-    SContainer.seMean = data_series.sem()
-    SContainer.aMean, SContainer.lclMean, SContainer.uclMean = mean_confidence_interval(data_series)
-    SContainer.Variance = data_series.var()
-    SContainer.Stdev = data_series.std()
-    SContainer.Skew = data_series.skew()
-    SContainer.Kurt = data_series.kurt()
+    SContainer.Observations = len(m_data_clean)
+    SContainer.NAs = m_data.isnull().sum()
+    SContainer.Minimum = np.min(m_data_clean)
+    SContainer.Quartile1 = np.percentile(m_data_clean, .25)
+    SContainer.Median = np.median(m_data_clean)
+    SContainer.gMean = geo_mean_return(m_data_clean)
+    SContainer.Quartile3 = np.percentile(m_data_clean, .75)
+    SContainer.Maximum = np.max(m_data_clean)
+    SContainer.seMean = sem(m_data_clean)
+    SContainer.aMean, SContainer.lclMean, SContainer.uclMean = mean_confidence_interval(m_data_clean)
+    SContainer.Variance = np.var(m_data_clean)
+    SContainer.Stdev = np.std(m_data_clean)
+    SContainer.Skew = skew(m_data_clean)
+    SContainer.Kurt = kurtosis(m_data_clean)
     return SContainer
 
 
@@ -177,22 +179,44 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
         raise ValueError("Risk free column must be a single value")
 
     # now create lists of the data points by comparing the manager to each comparison
-    st_data = {'Alpha': [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols],
-               'Beta': [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols],
-               'Beta+': [pas.capm_upper(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols],
-               'Beta-': [pas.capm_lower(*parse_cols(data_series, x, index_col, rf_col))[1] for x in manager_cols],
-               'R2': [pas.capm(*parse_cols(data_series, x, index_col, rf_col))[2] for x in manager_cols],
-               'Correlation': [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[0] for x in manager_cols],
-               'Correlation p-value': [pas.correl(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
-                                       manager_cols],
-               'Tracking Error': [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[0] for x in
-                                  manager_cols],
-               'Active Premium': [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[1] for x in
-                                  manager_cols],
-               'Information Ratio': [pas.tracking_error(*parse_cols(data_series, x, index_col, rf_col))[2] for x in
-                                     manager_cols],
-               'Treynor Ratio': [pas.treynor_ratio(*parse_cols(data_series, x, index_col, rf_col)) for x in
-                                 manager_cols]}
+    # TODO this is really ugly, fix
+    alpha = []
+    beta = []
+    betap = []
+    betam = []
+    r2 = []
+    r = []
+    rp = []
+    te = []
+    ap = []
+    ir = []
+    tr = []
+    for mc in manager_cols:
+        manager, index, rf = pas.extract_returns_bmark_rf(series, mc, index_col, rf_col)
+        manager_u, index_u, rf_u = pas.extract_returns_bmark_rf_partial(series, mc, index_col, rf_col, lower=False)
+        manager_d, index_d, rf_d = pas.extract_returns_bmark_rf_partial(series, mc, index_col, rf_col)
+        alpha.append(pas.capm(manager, index, rf)[0])
+        beta.append(pas.capm(manager, index, rf)[1])
+        r2.append(pas.capm(manager, index, rf)[2])
+        betap.append(pas.capm(manager_u, index_u, rf_u)[1])
+        betam.append(pas.capm(manager_d, index_d, rf_d[2]))
+        r.append(pas.correlation(manager, index)[0])
+        rp.append(pas.correlation(manager, index)[1])
+        te.append(pas.tracking_error(manager, index))
+        ap.append(pas.active_premium(manager, index))
+        ir.append(pas.information_ratio(manager, index))
+        tr.append(pas.treynor_ratio(manager, index))
+    st_data = {'Alpha': alpha,
+               'Beta': beta,
+               'Beta+': betap,
+               'Beta-': betam,
+               'R2': r2,
+               'Correlation': r,
+               'Correlation p-value': rp,
+               'Tracking Error': te,
+               'Active Premium': ap,
+               'Information Ratio': ir,
+               'Treynor Ratio': tr}
 
     df = pd.DataFrame.from_dict(st_data, orient='index')
 
@@ -265,7 +289,7 @@ def create_downside_table(data, managercols, MAR=.02, rf=.005):
 
     for managercol in managercols:
         colnames.append(data.columns[managercol])
-        dstats.append(downside_stats(data[data.columns[managercol]], MAR, rf))
+        dstats.append(downside_stats(series, managercol, MAR, rf))
 
     st_data = {'Semi Deviation': [x.semi for x in dstats],
                'Gain Deviation': [x.gain for x in dstats],
@@ -280,40 +304,34 @@ def create_downside_table(data, managercols, MAR=.02, rf=.005):
                'Modified ES (95%)': [x.mes for x in dstats]
                }
 
-
     df = pd.DataFrame.from_dict(st_data, orient='index')
     # rename the columns
     df = replace_col_names(df, colnames)
     return df
 
 
-def downside_stats(series, MAR, rf):
-    if not isinstance(series, pd.Series):
+def downside_stats(series, mcol, MAR, rf):
+    if not isinstance(series, pd.DataFrame):
         raise ValueError("Must be a Pandas Series")
 
     dContainer = collections.namedtuple('dContainer', 'semi gain loss ddmar ddrf ddzero mdd hvar hes mvar mes')
 
-    marSeries = pas.downside_df(series, 0, MAR)
-    rfSeries = pas.downside_df(series, 0, rf)
-    lossSeries = pas.downside_df(series, 0, 0)
-    semiSeries = pas.downside_df(series, 0, 'semi')
-    gainSeries = pas.upside_df(series, 0, 0)
+    m, r = pas.extract_returns_rf(series, mcol, rf_col=None, rf_default=rf)
+    m_mar, r_mar = pas.extract_returns_rf_partial(series, mcol, rf_col=None, rf_default=rf, threshold=MAR)
+    m_rf, r_rf = pas.extract_returns_rf_partial(series, mcol, rf_col=None, rf_default=rf, threshold=rf)
+    m_loss, r_loss = pas.extract_returns_rf_partial(series, mcol, rf_col=None, rf_default=rf, threshold=0)
+    m_semi, r_semi = pas.extract_returns_rf_partial(series, mcol, rf_col=None, rf_default=rf, threshold='semi')
+    m_gain, r_gain = pas.extract_returns_rf_partial(series, mcol, rf_col=None, rf_default=rf, threshold=0, lower=False)
 
-    dContainer.semi = semiSeries.std()
-    dContainer.gain = gainSeries.std()
-    dContainer.loss = lossSeries.std()
-    dContainer.ddmar = marSeries.std()
-    dContainer.ddrf = rfSeries.std()
-    dContainer.ddzero = lossSeries.std()
-    dContainer.mdd = pad.maxDrawDown(series)
-    dContainer.hvar = series.quantile(.05)
-    dContainer.hes = marSeries.quantile(.05)
-    dContainer.mvar = pas.mvar(series)
-    dContainer.mes = pas.mvar(marSeries)
+    dContainer.semi = np.std(m_semi)
+    dContainer.gain = np.std(m_gain)
+    dContainer.loss = np.std(m_loss)
+    dContainer.ddmar = np.std(m_mar)
+    dContainer.ddrf = np.std(m_rf)
+    dContainer.ddzero = np.std(m_loss)
+    dContainer.mdd = pas.max_dd(m)
+    dContainer.hvar = pas.var(m, .05)
+    dContainer.hes = pas.cvar(m, .05)
+    dContainer.mvar = pas.modified_var(m, .05)
+    dContainer.mes = pas.excess_var(m, r, .05)
     return dContainer
-
-
-base_path = os.path.abspath(os.getcwd())
-data_file = os.path.join(base_path, 'data', 'managers.csv')
-series = pd.read_csv(data_file, index_col=0, parse_dates=[0])
-print(create_downside_table(series,[0,1,2,3,4]))
