@@ -44,6 +44,9 @@ def create_riskreturn_scatter(data, manager_col=0, other_cols=None, ann_factor=1
     # create the plot
     ax.scatter(sigmas, means)
     ax.set_xlim([0, ax.get_xticks().max()])
+    # this just makes the y axis look better
+    if ax.get_yticks().min() > 0:
+        ax.set_ylim([0,ax.get_yticks().max()])
 
     # add labels
     for cntr, lbl in enumerate(data.columns[cols_used]):

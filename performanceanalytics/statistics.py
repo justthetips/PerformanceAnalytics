@@ -453,7 +453,7 @@ def capm(returns, breturns, rfrates=None):
 def geo_mean(returns):
     """
     quickly calculate the geometric mean of a series
-    :param data: the data to calc the mean
+    :param returns: the data to calc the mean
     :return: the geometric mean
     """
     return (reduce(lambda x, y: x * y, returns)) ** (1.0 / len(returns))
@@ -463,7 +463,7 @@ def geo_mean_return(returns):
     """
     calculate the geometric mean return of a pandas time series.  please note
     na's are dropped so errors will not be returned
-    :param data: the time series
+    :param returns: the time series
     :return: the geomtreic mean return
     """
     cr = ((1 + returns).cumprod())[-1]
@@ -488,14 +488,14 @@ def annualized_return(returns, start_date, end_date):
 def mean_confidence_interval(returns, confidence=0.95):
     """
     calculate the mean and the upper and lower confidence bounds.
-    :param data: the data
+    :param returns: the data
     :param confidence: the confidence interval (defaults to .95)
     :return: tuple (mean, lcl, hcl)
     """
     a = 1.0 * np.array(returns)
     n = len(a)
     m, se = np.mean(a), scipy.stats.sem(a)
-    ci = scipy.stats.norm.interval(0.68, loc=m, scale=se / np.sqrt(n))
+    ci = scipy.stats.norm.interval(confidence, loc=m, scale=se / np.sqrt(n))
     return m, ci[0], ci[1]
 
 
@@ -559,7 +559,7 @@ def extract_returns_bmark_rf(dframe, return_col, bmark_col, rf_col=None, dropna=
     else:
         rf = [rf_default] * len(returns)
 
-    return (returns, bmark, rf)
+    return returns, bmark, rf
 
 
 def extract_returns_rf_partial(dframe, return_col, rf_col=None, dropna=True, threshold=0.0, lower=True, rf_default=0):

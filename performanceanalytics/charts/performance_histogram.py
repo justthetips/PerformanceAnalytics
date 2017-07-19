@@ -24,6 +24,7 @@ import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
+import performanceanalytics.statistics as pas
 
 
 def create_histogram(data, manager_col=0, **kwargs):
@@ -57,9 +58,13 @@ def create_histogram(data, manager_col=0, **kwargs):
     ax3.plot(b, normal_y2, '--', linewidth=2)
     # fourth chart
     ax4.hist(x=df, bins=bins)
-    var_line = np.percentile(df, 5)
+    manager = pas.extract_returns_rf(data, manager_col)[0]
+    var_line = -pas.var(manager, .05)
+    mvar_line = -pas.modified_var(manager, .05)
     ax4.axvline(x=var_line, linestyle='--')
+    ax4.axvline(x=mvar_line, linestyle='--')
     ax4.text(x=var_line, y=ax4.get_yticks().max() * .9, s="VaR", rotation='vertical')
+    ax4.text(x=var_line, y=ax4.get_yticks().max() * .9, s="mVaR", rotation='vertical')
 
     # time to pretty things up
     ax_list = [ax1, ax2, ax3, ax4]

@@ -24,12 +24,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def create_rollingperformance(data, width, rF=0, annual_factor=12.0, **kwargs):
+def create_rollingperformance(data, width, rf=0, annual_factor=12.0, **kwargs):
     """
     create a three subplot chart of rolling return, rolling stdev and rolling sharpe
     :param data: the data as a DataFrame of the returns to plot
     :param width: the width of the rolling period
-    :param rF: risk free rate for sharpe (defaults to 0)
+    :param rf: risk free rate for sharpe (defaults to 0)
     :param annual_factor: annualization factor (defaults to 12, monthly)
     :param kwargs: extra kwargs mainly for titles
     :return: the chart
@@ -37,7 +37,7 @@ def create_rollingperformance(data, width, rF=0, annual_factor=12.0, **kwargs):
     # create the rolling vectors
     r = data.rolling(window=width, center=False).apply(r_return, args=[width / annual_factor])
     v = data.rolling(window=width, center=False).apply(r_stdev, args=[annual_factor])
-    s = (r - rF) / v
+    s = (r - rf) / v
 
     # create the plots
     f, axarr = plt.subplots(3, sharex=True, figsize=kwargs.pop('figsize', (8, 6)))

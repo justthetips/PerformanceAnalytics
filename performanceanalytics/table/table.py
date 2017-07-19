@@ -98,11 +98,11 @@ def stats_table(data_series, manager_col=0, other_cols=None):
     :param other_cols: an optional list of other series to run stats on
     :return: the table
     """
-    manager_stats = series_stats(data_series,manager_col)
+    manager_stats = series_stats(data_series, manager_col)
     other_stats = []
     # check to see if there are other series to run on
     if other_cols is not None:
-        other_stats = [series_stats(data_series,x) for x in other_cols]
+        other_stats = [series_stats(data_series, x) for x in other_cols]
     # row names
     # pandas is great, but renaming columns is a pain, this creates a list of column names
     cols = data_series.columns.tolist()
@@ -136,7 +136,8 @@ def stats_table(data_series, manager_col=0, other_cols=None):
 def series_stats(data, manager_col):
     """
     takes a single panda series and returns a named tuple with all the stats for the stats table
-    :param data_series: the single pandas series
+    :param data: the data
+    :param manager_col: the column with manager data
     :return: a named tuple with all the values
     """
 
@@ -149,10 +150,10 @@ def series_stats(data, manager_col):
     SContainer.Observations = len(m_data_clean)
     SContainer.NAs = m_data.isnull().sum()
     SContainer.Minimum = np.min(m_data_clean)
-    SContainer.Quartile1 = np.percentile(m_data_clean, .25)
+    SContainer.Quartile1 = np.percentile(m_data_clean, 25)
     SContainer.Median = np.median(m_data_clean)
     SContainer.gMean = geo_mean_return(m_data_clean)
-    SContainer.Quartile3 = np.percentile(m_data_clean, .75)
+    SContainer.Quartile3 = np.percentile(m_data_clean, 75)
     SContainer.Maximum = np.max(m_data_clean)
     SContainer.seMean = sem(m_data_clean)
     SContainer.aMean, SContainer.lclMean, SContainer.uclMean = mean_confidence_interval(m_data_clean)
@@ -192,20 +193,20 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
     ir = []
     tr = []
     for mc in manager_cols:
-        manager, index, rf = pas.extract_returns_bmark_rf(series, mc, index_col, rf_col)
-        manager_u, index_u, rf_u = pas.extract_returns_bmark_rf_partial(series, mc, index_col, rf_col, lower=False)
-        manager_d, index_d, rf_d = pas.extract_returns_bmark_rf_partial(series, mc, index_col, rf_col)
+        manager, index, rf = pas.extract_returns_bmark_rf(data_series, mc, index_col, rf_col)
+        manager_u, index_u, rf_u = pas.extract_returns_bmark_rf_partial(data_series, mc, index_col, rf_col, lower=False)
+        manager_d, index_d, rf_d = pas.extract_returns_bmark_rf_partial(data_series, mc, index_col, rf_col)
         alpha.append(pas.capm(manager, index, rf)[0])
         beta.append(pas.capm(manager, index, rf)[1])
         r2.append(pas.capm(manager, index, rf)[2])
         betap.append(pas.capm(manager_u, index_u, rf_u)[1])
-        betam.append(pas.capm(manager_d, index_d, rf_d[2]))
+        betam.append(pas.capm(manager_d, index_d, rf_d)[1])
         r.append(pas.correlation(manager, index)[0])
         rp.append(pas.correlation(manager, index)[1])
         te.append(pas.tracking_error(manager, index))
         ap.append(pas.active_premium(manager, index))
         ir.append(pas.information_ratio(manager, index))
-        tr.append(pas.treynor_ratio(manager, index))
+        tr.append(pas.treynor_ratio(manager, index, rf))
     st_data = {'Alpha': alpha,
                'Beta': beta,
                'Beta+': betap,
@@ -289,7 +290,7 @@ def create_downside_table(data, managercols, MAR=.02, rf=.005):
 
     for managercol in managercols:
         colnames.append(data.columns[managercol])
-        dstats.append(downside_stats(series, managercol, MAR, rf))
+        dstats.append(downside_stats(data, managercol, MAR, rf))
 
     st_data = {'Semi Deviation': [x.semi for x in dstats],
                'Gain Deviation': [x.gain for x in dstats],
@@ -329,9 +330,9 @@ def downside_stats(series, mcol, MAR, rf):
     dContainer.ddmar = np.std(m_mar)
     dContainer.ddrf = np.std(m_rf)
     dContainer.ddzero = np.std(m_loss)
-    dContainer.mdd = pas.max_dd(m)
-    dContainer.hvar = pas.var(m, .05)
-    dContainer.hes = pas.cvar(m, .05)
-    dContainer.mvar = pas.modified_var(m, .05)
-    dContainer.mes = pas.excess_var(m, r, .05)
+    dContainer.mdd = -pas.max_dd(m)
+    dContainer.hvar = -pas.var(m, .05)
+    dContainer.hes = -pas.cvar(m, .05)
+    dContainer.mvar = -pas.modified_var(m, .05)
+    dContainer.mes = -pas.excess_var(m, r, .05)
     return dContainer
