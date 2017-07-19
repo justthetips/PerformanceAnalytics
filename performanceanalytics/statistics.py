@@ -20,180 +20,426 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# PLEASE NOTE, A lot of these functions are based on
+# https://gist.github.com/StuartGordonReid/67a1ec4fbc8a84c0e856
+# I would really like to thank him
+
 import pandas as pd
 import numpy as np
 import scipy as sp
 import scipy.stats
 import numbers
+import math
 from functools import reduce
 
 
-def geo_mean(data):
+def vol(returns):
     """
-    quickly calculate the geometric mean of a series
-    :param data: the data to calc the mean
-    :return: the geometric mean
+    return the standard deviation of returns
+    :param returns: returns
+    :return: std
     """
-    return (reduce(lambda x, y: x * y, data)) ** (1.0 / len(data))
+    return np.std(returns)
 
 
-def geo_mean_return(data):
+def beta(returns, market):
     """
-    calculate the geometric mean return of a pandas time series.  please note
-    na's are dropped so errors will not be returned
-    :param data: the time series
-    :return: the geomtreic mean return
+    calculate the beta between returns and the market
+    :param returns: np.array of returns
+    :param market: np.array of market
+    :return: the beta
     """
-    data = data[~np.isnan(data)]
-    cr = ((1 + data).cumprod())[-1]
-    gr = (cr ** (1 / len(data))) - 1
-    return gr
+    y = returns
+    x = market
+    # use numpy linalg to calculate the terms
+    A = np.vstack([x, np.ones(len(x))]).T
+
+    m, c = np.linalg.lstsq(A, y)[0]
+
+    return m
 
 
-def annualized_return(data):
-    total_return = ((1 + data).cumprod())[-1]
-    s_date = data.index.min()
-    e_date = data.index.max()
-    t = (e_date - s_date).days / 365.25
-    ar = (total_return ** (1 / t)) - 1
-    return ar
-
-
-def mean_confidence_interval(data, confidence=0.95):
+def lpm(returns, threshold, order):
     """
-    calculate the mean and the upper and lower confidence bounds.  please note
-    na's are dropped so errors will not be returned
-    :param data: the data
-    :param confidence: the confidence interval (defaults to .95)
-    :return: tuple (mean, lcl, hcl)
+    calculate the lower partial moment of returns
+    :param returns: the returns
+    :param threshold:  the threshold
+    :param order: moment order
+    :return: the lower partial moment
     """
-    data = data[~np.isnan(data)]
-    a = 1.0 * np.array(data)
-    n = len(a)
-    m, se = np.mean(a), scipy.stats.sem(a)
-    # noinspection PyProtectedMember
-    h = se * sp.stats.t._ppf((1 + confidence) / 2., n - 1)
-    return m, m - h, m + h
+    # Create an array he same length as returns containing the minimum return threshold
+    threshold_array = np.empty(len(returns))
+    threshold_array.fill(threshold)
+    # Calculate the difference between the threshold and the returns
+    diff = threshold_array - returns
+    # Set the minimum of each to 0
+    diff = diff.clip(min=0)
+    # Return the sum of the different to the power of order
+    return np.sum(diff ** order) / len(returns)
 
 
-def create_capm_frame(manager, index, rf=None):
+def hpm(returns, threshold, order):
     """
-    create a suitable dataframe for CAPM calculations.  Series have to have the same length
-    if the rf series is not passed in, one will be created with all 0s
-
-    it is unlikely users will call this method, it is used internally
-
-    :param manager: manager return series
-    :param index: index return series
-    :param rf: optional risk free rate series
-    :return: a single data frame
+    calculate the higher partial moment of returns
+    :param returns: the returns
+    :param threshold:  the threshold
+    :param order: moment order
+    :return: the lower partial moment
     """
-    # lets check to make sure manager and index are pandas series
-    if not isinstance(manager, pd.Series):
-        raise ValueError("Manager series must be a pandas series")
-    if not isinstance(index, pd.Series):
-        raise ValueError("Index series must be a pandas series")
-    if (rf is not None) and (not isinstance(rf, pd.Series)):
-        raise ValueError("Risk Free must either be none or a pandas series")
-
-    # check for lengths, we do this befor the na's
-    if manager.size != index.size:
-        raise ValueError(
-            "Manager and Index must be the same size, you passed in {} and {}".format(manager.size, index.size))
-    if (rf is not None) and (manager.size != rf.size):
-        raise ValueError(
-            "Manager and RF must be the same size, you passed in {} and {}".format(manager.size, index.size))
-
-    # if the risk free is None, create a risk free series of 0
-    if rf is None:
-        rf_data = [0.0] * len(manager)
-        rf = pd.Series(rf_data, index=manager.index)
-
-    # drop the na's and join to make sure they have the same valid length
-    manager = manager.dropna()
-    index = index.dropna()
-    rf = rf.dropna()
-    df = pd.concat([manager, index, rf], axis=1, join='inner')
-
-    # return the df
-    return df
+    # Create an array he same length as returns containing the minimum return threshold
+    threshold_array = np.empty(len(returns))
+    threshold_array.fill(threshold)
+    # Calculate the difference between the returns and the threshold
+    diff = returns - threshold_array
+    # Set the minimum of each to 0
+    diff = diff.clip(min=0)
+    # Return the sum of the different to the power of order
+    return np.sum(diff ** order) / len(returns)
 
 
-def create_sharpe_frame(manager, rf):
-    # lets check to make sure manager and index are pandas series
-    if not isinstance(manager, pd.Series):
-        raise ValueError("Manager series must be a pandas series")
-    if not isinstance(rf, pd.Series):
-        raise ValueError("Index series must be a pandas series")
-
-    # check for lengths, we do this befor the na's
-    if manager.size != rf.size:
-        raise ValueError(
-            "Manager and RF must be the same size, you passed in {} and {}".format(manager.size, rf.size))
-
-    # drop the na's and join to make sure they have the same valid length
-    manager = manager.dropna()
-    rf = rf.dropna()
-    df = pd.concat([manager, rf], axis=1, join='inner')
-
-    # return the df
-    return df
-
-
-def capm(manager, index, rf=None):
+def var(returns, alpha):
     """
-    calculate the CAPM parameters for the manager, and the index.  If the rf series is passed in,
-    it will be subtracted from each
-    :param manager: the manager time series
-    :param index: the index time series
-    :param rf: optional rf time series.
-    :return: tuple of (alpha, beta, r2)
+    calculate historical VaR
+    :param returns: the returns
+    :param alpha: the percentile
+    :return: the VaR
     """
-    df = create_capm_frame(manager, index, rf)
-    return capm_calc(df)
+    sorted_returns = np.sort(returns)
+    # Calculate the index associated with alpha
+    index = int(alpha * len(sorted_returns))
+    # VaR should be positive
+    return abs(sorted_returns[index])
 
 
-def capm_upper(manager, index, rf=None, threshold=0.0):
+def modified_var(returns, alpha):
     """
-    calculate CAPM on manager returns above a threshold (tehcnically above or equal to)
-    :param manager: the manager
-    :param index: the index time series
-    :param rf: optional risk free rate time series
-    :param threshold: the threshold, defaults to 0
-    :return: tuple of (alpha, beta, r2)
+    calculate the modified VaR (for skew and kurtosis)
+    :param returns: the returns
+    :param alpha: the percnetile
+    :return: the modified VaR
     """
-    df = create_capm_frame(manager, index, rf)
-    df = df[df[df.columns[0]] >= threshold]
-    return capm_calc(df)
+    mu = np.mean(returns)
+    sigma = np.std(returns)
+    skew = scipy.stats.skew(returns)
+    kurt = scipy.stats.kurtosis(returns)
+    fp = scipy.stats.norm.cdf(alpha)
+
+    z = fp + (fp ** 2 - 1) * skew / 6 + (fp ** 3 - 3 * fp) * kurt / 24 - (2 * fp ** 3 - 5 * fp) * skew ** 2 / 36
+
+    return mu + (sigma * z)
 
 
-def capm_lower(manager, index, rf=None, threshold=0.0):
+def cvar(returns, alpha):
     """
-    calculate CAPM on manager returns below a threshold (tehcnically below or equal to)
-    :param manager: the manager
-    :param index: the index time series
-    :param rf: optional risk free rate time series
-    :param threshold: the threshold, defaults to 0
-    :return: tuple of (alpha, beta, r2)
+    the conditional VaR
+    :param returns: the returns
+    :param alpha: the percentile
+    :return: the cVaR
     """
-    df = create_capm_frame(manager, index, rf)
-    df = df[df[df.columns[0]] <= threshold]
-    return capm_calc(df)
+    sorted_returns = np.sort(returns)
+    # Calculate the index associated with alpha
+    index = int(alpha * len(sorted_returns))
+    # Calculate the total VaR beyond alpha
+    sum_var = sorted_returns[0]
+    for i in range(1, index):
+        sum_var += sorted_returns[i]
+    # Return the average VaR
+    # CVaR should be positive
+    return abs(sum_var / index)
 
 
-def capm_calc(df):
+def prices(returns, base):
     """
-    calculate alpha, beta, and r2 for a manager and an index series
-    :param df: the capm dataframe
+    converts returns to an index for dds
+    :param returns: returns
+    :param base: base
+    :return: array of index
+    """
+    # Converts returns into prices
+    s = [base]
+    for i in range(len(returns)):
+        s.append(base * (1 + returns[i]))
+    return np.array(s)
+
+
+def dd(returns, tau):
+    """
+    calculate the drawdown
+    :param returns: the returns
+    :param tau: the time period
+    :return: array of vars
+    """
+    # Returns the draw-down given time period tau
+    values = prices(returns, 100)
+    pos = len(values) - 1
+    pre = pos - tau
+    drawdown = float('+inf')
+    # Find the maximum drawdown given tau
+    while pre >= 0:
+        dd_i = (values[pos] / values[pre]) - 1
+        if dd_i < drawdown:
+            drawdown = dd_i
+        pos, pre = pos - 1, pre - 1
+    # Drawdown should be positive
+    return abs(drawdown)
+
+
+def max_dd(returns):
+    """
+    calculate the max drawdown
+    :param returns: returns
+    :return: the max dd
+    """
+    max_drawdown = float('-inf')
+    for i in range(0, len(returns)):
+        drawdown_i = dd(returns, i)
+        if drawdown_i > max_drawdown:
+            max_drawdown = drawdown_i
+    # Max draw-down should be positive
+    return abs(max_drawdown)
+
+
+def average_dd(returns, periods):
+    """
+    the average drawdown over the period
+    :param returns: the returns
+    :param periods: the periods
+    :return: the average drawdown
+    """
+    drawdowns = []
+    for i in range(0, len(returns)):
+        drawdown_i = dd(returns, i)
+        drawdowns.append(drawdown_i)
+    drawdowns = sorted(drawdowns)
+    total_dd = abs(drawdowns[0])
+    for i in range(1, periods):
+        total_dd += abs(drawdowns[i])
+    return total_dd / periods
+
+
+def average_dd_squared(returns, periods):
+    """
+    the average of the square of the drawdown over the periods
+    :param returns: the returns
+    :param periods: the periods
+    :return: the average of the square of the dd
+    """
+    drawdowns = []
+    for i in range(0, len(returns)):
+        drawdown_i = math.pow(dd(returns, i), 2.0)
+        drawdowns.append(drawdown_i)
+    drawdowns = sorted(drawdowns)
+    total_dd = abs(drawdowns[0])
+    for i in range(1, periods):
+        total_dd += abs(drawdowns[i])
+    return total_dd / periods
+
+
+def treynor_ratio(returns, market, rf):
+    """
+    calculate the treynor ratio
+    :param returns: returns
+    :param market: market returns
+    :param rf: risk free returns
+    :return: the treynor ratio
+    """
+    return (np.average(returns - rf)) / beta(returns, market)
+
+
+def sharpe_ratio(returns, rf):
+    """
+    calculate the sharpe ratio
+    :param returns: the returns
+    :param rf: the risk free rates
+    :return: the sharpe ratio
+    """
+    return (np.average(returns - rf)) / vol(returns)
+
+
+def information_ratio(returns, benchmark):
+    """
+    calculate the information ratio
+    :param returns: the returns
+    :param benchmark: the benchmark returns
+    :return: the information ratio
+    """
+    diff = returns - benchmark
+    return np.mean(diff) / vol(diff)
+
+
+def tracking_error(returns, benchmark):
+    """
+    calculate the tracking error
+    :param returns: the returns
+    :param benchmark: the benchmark returns
+    :return: the tracking error
+    """
+    diff = returns - benchmark
+    return np.sqrt(np.sum(diff ** 2))
+
+
+def active_premium(returns, benchmark):
+    """
+    calculate the active premium
+    :param returns: the returns
+    :param benchmark: the benchmark returns
+    :return: the active premium
+    """
+    diff = returns - benchmark
+    return np.mean(diff)
+
+
+def modigliani_ratio(returns, benchmark, rf):
+    """
+    calculate the modigliani ratio
+    :param returns: the returns
+    :param benchmark: the benchmarke returns
+    :param rf: the risk free rate
+    :return: the modigliani ratio
+    """
+    np_rf = np.empty(len(returns))
+    np_rf.fill(rf)
+    rdiff = returns - np_rf
+    bdiff = benchmark - np_rf
+    return (np.average(returns - rf)) * (vol(rdiff) / vol(bdiff)) + rf
+
+
+def excess_var(returns, rf, alpha):
+    """
+    calculate the excess var
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param alpha: the percentile
+    :return: the excess var
+    """
+    return (np.average(returns - rf)) / var(returns, alpha)
+
+
+def conditional_sharpe_ratio(returns, rf, alpha):
+    """
+    calculate the conditional sharpe ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param alpha: the percentile
+    :return: the conditional sharpe ratio
+    """
+    return (np.average(returns - rf)) / cvar(returns, alpha)
+
+
+def omega_ratio(returns, rf, target=0):
+    """
+    calculate the omega ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param target: the target return
+    :return: the omega ratio
+    """
+    return (np.average(returns - rf)) / lpm(returns, target, 1)
+
+
+def sortino_ratio(returns, rf, target=0):
+    """
+    calculate the sortino ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param target: the target return
+    :return: the sortino ratio
+    """
+    return (np.average(returns - rf)) / math.sqrt(lpm(returns, target, 2))
+
+
+def kappa_three_ratio(returns, rf, target=0):
+    """
+    calculate the kappa three ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param target: the return target
+    :return: the ktr
+    """
+    return (np.average(returns - rf)) / math.pow(lpm(returns, target, 3), float(1 / 3))
+
+
+def gain_loss_ratio(returns, target=0):
+    """
+    calculate the gain/loss ratio
+    :param returns: the returns
+    :param target: the target return
+    :return: the gain/loss ratio
+    """
+    return hpm(returns, target, 1) / lpm(returns, target, 1)
+
+
+def upside_potential_ratio(returns, target=0):
+    """
+    calculate the upside potential ratio
+    :param returns: the returns
+    :param target: the target return
+    :return: the upr
+    """
+    return hpm(returns, target, 1) / math.sqrt(lpm(returns, target, 2))
+
+
+def calmar_ratio(returns, rf):
+    """
+    calculate the calmar ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :return: the calmar ratio
+    """
+    return (np.average(returns - rf)) / max_dd(returns)
+
+
+def sterling_ratio(returns, rf, periods):
+    """
+    calculare the sterling ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param periods: the number of periods
+    :return: the sterling ratio
+    """
+    return (np.average(returns - rf)) / average_dd(returns, periods)
+
+
+def burke_ratio(returns, rf, periods):
+    """
+    calculate the burke ratio
+    :param returns: the returns
+    :param rf: the risk free rate
+    :param periods: the number of periods
+    :return: the burke ratio
+    """
+    return (np.average(returns - rf)) / math.sqrt(average_dd_squared(returns, periods))
+
+
+def correlation(returns1, returns2, rtype='pearson'):
+    """
+    calculate the correlation between two return streems, can calculate any scipy correlation
+    :param returns1: return 1
+    :param returns2: return 2
+    :param rtype: return type (by default pearson
+    :return: the correlation and the pvalue (tuple)
+    """
+    cortype = ''.join([rtype, 'r'])
+    c_func = getattr(scipy.stats, cortype)
+    c, p = c_func(returns1, returns2)
+    return c, p
+
+
+def capm(returns, breturns, rfrates=None):
+    """
+    calculate the capm stats (alpha, beta, r2)
+    :param returns: returns
+    :param breturns: benchmark returns
+    :param rfrates: riskfree rates (defaults to none)
     :return: tuple (alpha, beta, r2)
     """
-    # now that we have the dataframe, we subtract the rf from the manager and the index
-    manager_adj = df[df.columns[0]] - df[df.columns[2]]
-    index_adj = df[df.columns[1]] - df[df.columns[2]]
-
+    # if rfates are 0, just create a np.array or 0s
+    if rfrates is None:
+        rfrates = [0.0] * len(returns)
+    # adj the returns
+    y = returns - rfrates
+    x = breturns - rfrates
     # use numpy linalg to calculate the terms
-    x = index_adj.values
-    y = manager_adj.values
     A = np.vstack([x, np.ones(len(x))]).T
 
     m, c = np.linalg.lstsq(A, y)[0]
@@ -204,149 +450,195 @@ def capm_calc(df):
     return c, m, r2
 
 
-def correl(manager, index, rf=None):
+def geo_mean(returns):
     """
-    calculate to correlation and the correlation p-value between a manager and an index
-    if the rf rate is passed in, they are both adjusted by it
-    :param manager: the manager
-    :param index: the index
-    :param rf: rf defaults to None
-    :return: tuple (correlation, pvalue)
+    quickly calculate the geometric mean of a series
+    :param data: the data to calc the mean
+    :return: the geometric mean
     """
-    df = create_capm_frame(manager, index, rf)
-    return correl_calc(df)
+    return (reduce(lambda x, y: x * y, returns)) ** (1.0 / len(returns))
 
 
-def correl_calc(df):
+def geo_mean_return(returns):
     """
-    internal calculation of the correlation, uses scypy
-    :param df: the data frame
-    :return: tuple (correlation,  pvalue)
+    calculate the geometric mean return of a pandas time series.  please note
+    na's are dropped so errors will not be returned
+    :param data: the time series
+    :return: the geomtreic mean return
     """
-    # now that we have the dataframe, we subtract the rf from the manager and the index
-    manager_adj = df[df.columns[0]] - df[df.columns[2]]
-    index_adj = df[df.columns[1]] - df[df.columns[2]]
-
-    # use numpy linalg to calculate the terms
-    x = index_adj.values
-    y = manager_adj.values
-
-    # use scipy to calculate the correlation and the pvalue
-    c, p = scipy.stats.pearsonr(x, y)
-    return c, p
+    cr = ((1 + returns).cumprod())[-1]
+    gr = (cr ** (1 / len(returns))) - 1
+    return gr
 
 
-def tracking_error(manager, benchmark, *args, **kwargs):
+def annualized_return(returns, start_date, end_date):
     """
-    calculate the tracking error of a manager and the benchmark.
-    Tracking error is calculated by taking the square root of the average of the squared deviations
-    between the investment’s returns and the benchmark’s returns
-
-    Since these calcs are all related, it returns a tuple of tracking error, active premium and information ratio
-    :param manager: the manager
-    :param benchmark: the benchmark
-    :return: tuple (tracking error, active premium, information ratio)
+    calculate the annualized geomteric return
+    :param returns: the returns
+    :param start_date: start date
+    :param end_date: end date
+    :return: the annualized return
     """
-    df = create_capm_frame(manager, benchmark)
-    m = df[df.columns[0]].values
-    b = df[df.columns[1]].values
-    diff = m - b
-    te = np.sqrt(np.mean(diff ** 2))
-    ap = np.mean(diff)
-    ir = ap / np.std(diff)
-    return te, ap, ir
+    total_return = ((1 + returns).cumprod())[-1]
+    t = (end_date - start_date).days / 365.25
+    ar = (total_return ** (1 / t)) - 1
+    return ar
 
 
-def sharpe_ratio(manager, rF):
-    df = create_sharpe_frame(manager, rF)
-    m = df[df.columns[0]].values
-    r = df[df.columns[1]].values
-    sharpe = np.mean((m - r)) / np.std((m - r))
-    return sharpe
-
-
-def treynor_ratio(manager, index, rF):
-    beta = capm(manager, index, rF)[1]
-    df = create_sharpe_frame(manager, rF)
-    m = df[df.columns[0]].values
-    r = df[df.columns[1]].values
-    treynor = np.mean((m - r)) / beta
-    return treynor
-
-
-def sortino_ratio(manager, rF):
-    df = create_sharpe_frame(manager, rF)
-    df = df[df[df.columns[0]] <= 0]
-    m = df[df.columns[0]].values
-    r = df[df.columns[1]].values
-    sr = np.mean((m - r)) / np.std(m - r)
-    return sr
-
-def downside_df(data, managerCol, threshold):
+def mean_confidence_interval(returns, confidence=0.95):
     """
-    create a lower distribution for the data frame based on the manager column and
-    the threshold.  The threshold should be a number, meaning the mimimal acceptable return
-    or the word 'semi' for the semi distribution (ie, the return is less than the avergage return
+    calculate the mean and the upper and lower confidence bounds.
     :param data: the data
-    :param managerCol: the manager col
-    :param threshold: the threshold (float or 'semi')
-    :return: the adjusted dataframe
+    :param confidence: the confidence interval (defaults to .95)
+    :return: tuple (mean, lcl, hcl)
+    """
+    a = 1.0 * np.array(returns)
+    n = len(a)
+    m, se = np.mean(a), scipy.stats.sem(a)
+    ci = scipy.stats.norm.interval(0.68, loc=m, scale=se / np.sqrt(n))
+    return m, ci[0], ci[1]
+
+
+def extract_returns_rf(dframe, return_col, rf_col=None, dropna=True, rf_default=0):
+    """
+    helper to extract the returns, and the rf rate of a cleaned series
+    :param dframe: the data frame
+    :param return_col: the return column
+    :param rf_col: the risk free column (defaults to none, will use the rf_default if none)
+    :param dropna: drop na's (true)
+    :param rf_default: rf_default (0)
+    :return: (returns, rfrates)
+    """
+    if not isinstance(dframe, pd.DataFrame):
+        raise ValueError("dframe must be a pandas Dataframe, not a {}".format(type(dframe)))
+
+    rc_name = dframe.columns[return_col]
+
+    # if drop na remove rows where the manager has an n/a
+    if dropna:
+        dframe = dframe.dropna(subset=[rc_name])
+
+    returns = dframe[rc_name].values
+    # if a risk free col is set, extract that
+    if rf_col is not None:
+        rf = dframe[dframe.columns[rf_col]].values
+    else:
+        rf = [rf_default] * len(returns)
+
+    return returns, rf
+
+
+def extract_returns_bmark_rf(dframe, return_col, bmark_col, rf_col=None, dropna=True, rf_default=0):
     """
 
-    test = 0
-    if isinstance(threshold,numbers.Real):
-        test = threshold
-    elif threshold == 'semi':
-        if isinstance(data, pd.Series):
-            test = np.mean(data)
-        else:
-            test = np.mean(data[data.column[managerCol]])
-    else:
-        raise ValueError("threshold must be a number or semi, {} was passed in".format(threshold))
+    helper to extract the returns, a benchmark return and the rf rate of a cleaned series
+    :param dframe: the data frame
+    :param return_col: the return column
+    :param bmark_col: the benchmark column
+    :param rf_col: the risk free column (defaults to none, will use the rf_default if none)
+    :param dropna: drop na's (true)
+    :param rf_default: rf_default (0)
+    :return: (returns, bmark, rfrates)
 
-    if isinstance(data,pd.Series):
-        df = data.clip_lower(test)
-    else:
-        df = data[data[data.columns[managerCol]] <= test]
-    return df
-
-def upside_df(data, managerCol, threshold):
     """
-    create a upper distribution for the data frame based on the manager column and
-    the threshold.  The threshold should be a number, meaning the mimimal acceptable return
-    or the word 'semi' for the semi distribution (ie, the return is less than the avergage return
-    :param data: the data
-    :param managerCol: the manager col
-    :param threshold: the threshold (float or 'semi')
-    :return: the adjusted dataframe
+    if not isinstance(dframe, pd.DataFrame):
+        raise ValueError("dframe must be a pandas Dataframe, not a {}".format(type(dframe)))
+
+    rc_name = dframe.columns[return_col]
+    bm_name = dframe.columns[bmark_col]
+
+    # if drop na remove the rows where either the manager or the bmark has n/a
+    if dropna:
+        dframe = dframe.dropna(subset=[rc_name, bm_name], how='any')
+
+    returns = dframe[rc_name].values
+    bmark = dframe[bm_name].values
+
+    if rf_col is not None:
+        rf = dframe[dframe.columns[rf_col]].values
+    else:
+        rf = [rf_default] * len(returns)
+
+    return (returns, bmark, rf)
+
+
+def extract_returns_rf_partial(dframe, return_col, rf_col=None, dropna=True, threshold=0.0, lower=True, rf_default=0):
     """
+    helper to extract the returns, and the rf rate of a cleaned series where the manager is above or below a threshold
+    :param dframe: the data frame
+    :param return_col: the return column
+    :param rf_col: the risk free column (defaults to none, will use the rf_default if none)
+    :param dropna: drop na's (true)
+    :param threshold: the threshold (float or semi, if semi it will be the average of the returns)
+    :param lower: True to return the lower half
+    :param rf_default: the default risk free rate
+    :return: (return, rf)
+    """
+    if not isinstance(dframe, pd.DataFrame):
+        raise ValueError("dframe must be a pandas Dataframe, not a {}".format(type(dframe)))
 
-    test = 0
-    if isinstance(threshold,numbers.Real):
-        test = threshold
-    elif threshold == 'semi':
-        if isinstance(data, pd.Series):
-            test = np.mean(data)
-        else:
-            test = np.mean(data[data.column[managerCol]])
+    if not (isinstance(threshold, numbers.Real) or threshold.lower() == 'semi'):
+        raise ValueError("threshold must be a float or semi, not {}".format(threshold))
+
+    rc_name = dframe.columns[return_col]
+
+    # if drop na remove rows where the manager has an n/a
+    if dropna:
+        dframe = dframe.dropna(subset=[rc_name])
+
+    # calculare the alpha
+    if isinstance(threshold, numbers.Real):
+        alpha = threshold
     else:
-        raise ValueError("threshold must be a number or semi, {} was passed in".format(threshold))
+        alpha = np.mean(dframe[rc_name].values)
 
-    if isinstance(data,pd.Series):
-        df = data.clip_upper(test)
+    # trim the dataframe based on the threshold
+    if lower:
+        dframe = dframe.loc[lambda dframe: dframe[rc_name] <= alpha, :]
     else:
-        df = data[data[data.columns[managerCol]] >= test]
+        dframe = dframe.loc[lambda dframe: dframe[rc_name] >= alpha, :]
 
-    return df
+        # since we already handled n/a we can just pass False
+    return extract_returns_rf(dframe, return_col, rf_col, False, rf_default=rf_default)
 
 
+def extract_returns_bmark_rf_partial(dframe, return_col, bmark_col, rf_col=None, dropna=True, threshold=0, lower=True, rf_default=0):
+    """
+    helper to extract the returns, and the rf rate of a cleaned series where the manager is above or below a threshold
+    :param dframe: the data frame
+    :param return_col: the return column
+    :param bmark_col: the benchmark column
+    :param rf_col: the risk free column (defaults to none, will use the rf_default if none)
+    :param dropna: drop na's (true)
+    :param threshold: the threshold (float or semi, if semi it will be the average of the returns)
+    :param lower: True to return the lower half
+    :param rf_default: the default risk free rate
+    :return: (return, rf)
+    """
+    if not isinstance(dframe, pd.DataFrame):
+        raise ValueError("dframe must be a pandas Dataframe, not a {}".format(type(dframe)))
 
-def mvar(series, zc = .05):
-    mu = np.mean(series)
-    sigma = np.std(series)
-    skew = scipy.stats.skew(series)
-    kurt = scipy.stats.kurtosis(series)
+    if not (isinstance(threshold, numbers.Real) or threshold.lower() == 'semi'):
+        raise ValueError("threshold must be a float or semi, not {}".format(threshold))
 
-    Z = (zc+(((1/6)*(zc**2 -1))*skew)+(((1/24)*(zc**3-(3*zc)))*kurt)-(((1/36)*((2*zc)**3-(5*zc)))*(skew**2)))
-    calc = mu - (Z*sigma)
-    return calc
+    rc_name = dframe.columns[return_col]
+    bm_name = dframe.columns[bmark_col]
+
+    # if drop na remove the rows where either the manager or the bmark has n/a
+    if dropna:
+        dframe = dframe.dropna(subset=[rc_name, bm_name], how='any')
+
+    # calculare the alpha
+    if isinstance(threshold, numbers.Real):
+        alpha = float(threshold)
+    else:
+        alpha = np.mean(dframe[rc_name].values)
+
+    # trim the dataframe based on the threshold
+    if lower:
+        dframe = dframe.loc[lambda dframe: dframe[rc_name] <= alpha, :]
+    else:
+        dframe = dframe.loc[lambda dframe: dframe[rc_name] >= alpha, :]
+
+    # since we already handled n/a we can just pass False
+    return extract_returns_bmark_rf(dframe, return_col, bmark_col, rf_col, False, rf_default=rf_default)
