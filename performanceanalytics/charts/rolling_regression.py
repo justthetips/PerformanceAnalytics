@@ -20,11 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from collections import Iterable
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
-from collections import Iterable
 
 
 def create_rolling_regression(data, width, bmark_col, manager_cols, rf_col=None, **kwargs):

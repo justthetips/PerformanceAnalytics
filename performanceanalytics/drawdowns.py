@@ -23,7 +23,7 @@
 import pandas as pd
 
 
-def find_drawdowns(series):
+def find_drawdowns(series: pd.Series):
     """
     find the drawdowns of a series, returns a list of drawdown holder objects
     :param series: the series

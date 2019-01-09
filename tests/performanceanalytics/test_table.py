@@ -20,15 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from performanceanalytics.table.table import series_stats
 import pytest
+
+from performanceanalytics.table.table import series_stats
 
 # test tolerance, yes calling it mine is a holdout from my bond trading days
 MINE = .0001
 
 def test_series_stats(series):
     st = series[series.columns[0]]
-    sc = series_stats(st)
+    sc = series_stats(st, 0)
     assert sc.Observations == 132
     assert sc.NAs == 0
     assert sc.Minimum == pytest.approx(-.0944,abs=MINE)
@@ -48,7 +49,7 @@ def test_series_stats(series):
 
 def test_series_stats_nas(series):
     st = series[series.columns[1]]
-    sc = series_stats(st)
+    sc = series_stats(st, 0)
     assert sc.Observations == 125
     assert sc.NAs == 7
     assert sc.Minimum == pytest.approx(-.0371,abs=MINE)

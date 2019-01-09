@@ -22,10 +22,9 @@
 
 
 import collections
-import os
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.stats import sem, skew, kurtosis
 
 import performanceanalytics.drawdowns as pad
@@ -136,7 +135,7 @@ def stats_table(data_series, manager_col=0, other_cols=None):
 def series_stats(data, manager_col):
     """
     takes a single panda series and returns a named tuple with all the stats for the stats table
-    :param data_series: the single pandas series
+    :param data: the single pandas series
     :return: a named tuple with all the values
     """
 
@@ -192,9 +191,9 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
     ir = []
     tr = []
     for mc in manager_cols:
-        manager, index, rf = pas.extract_returns_bmark_rf(series, mc, index_col, rf_col)
-        manager_u, index_u, rf_u = pas.extract_returns_bmark_rf_partial(series, mc, index_col, rf_col, lower=False)
-        manager_d, index_d, rf_d = pas.extract_returns_bmark_rf_partial(series, mc, index_col, rf_col)
+        manager, index, rf = pas.extract_returns_bmark_rf(data_series, mc, index_col, rf_col)
+        manager_u, index_u, rf_u = pas.extract_returns_bmark_rf_partial(data_series, mc, index_col, rf_col, lower=False)
+        manager_d, index_d, rf_d = pas.extract_returns_bmark_rf_partial(data_series, mc, index_col, rf_col)
         alpha.append(pas.capm(manager, index, rf)[0])
         beta.append(pas.capm(manager, index, rf)[1])
         r2.append(pas.capm(manager, index, rf)[2])
@@ -205,7 +204,7 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
         te.append(pas.tracking_error(manager, index))
         ap.append(pas.active_premium(manager, index))
         ir.append(pas.information_ratio(manager, index))
-        tr.append(pas.treynor_ratio(manager, index))
+        tr.append(pas.treynor_ratio(manager, index, rf))
     st_data = {'Alpha': alpha,
                'Beta': beta,
                'Beta+': betap,
@@ -289,7 +288,7 @@ def create_downside_table(data, managercols, MAR=.02, rf=.005):
 
     for managercol in managercols:
         colnames.append(data.columns[managercol])
-        dstats.append(downside_stats(series, managercol, MAR, rf))
+        dstats.append(downside_stats(data, managercol, MAR, rf))
 
     st_data = {'Semi Deviation': [x.semi for x in dstats],
                'Gain Deviation': [x.gain for x in dstats],
