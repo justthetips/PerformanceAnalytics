@@ -222,4 +222,4 @@ class DrawdownHolder(object):
         return self.start_date == other.start_date and self.trough_date == other.trough_date and self.end_date == other.end_date
 
     def __ne__(self, other):
-        return self.start_date != other.start_date or self.trough_date == other.trough_date or self.end_date == other.end_date
+        return self.start_date != other.start_date or self.trough_date != other.trough_date or self.end_date != other.end_date
