@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='PerformanceAnalytics',
-    version='0.11',
+    version='0.12',
     packages=['tests', 'tests.performanceanalytics', 'performanceanalytics', 'performanceanalytics.table',
               'performanceanalytics.charts'],
     url='https://github.com/justthetips/PerformanceAnalytics',
