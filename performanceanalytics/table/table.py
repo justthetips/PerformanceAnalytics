@@ -198,7 +198,7 @@ def capm_table(data_series, manager_cols, index_col, rf_col):
         beta.append(pas.capm(manager, index, rf)[1])
         r2.append(pas.capm(manager, index, rf)[2])
         betap.append(pas.capm(manager_u, index_u, rf_u)[1])
-        betam.append(pas.capm(manager_d, index_d, rf_d[2]))
+        betam.append(pas.capm(manager_d, index_d, rf_d)[1])
         r.append(pas.correlation(manager, index)[0])
         rp.append(pas.correlation(manager, index)[1])
         te.append(pas.tracking_error(manager, index))
