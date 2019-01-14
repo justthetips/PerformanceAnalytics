@@ -328,7 +328,7 @@ def downside_stats(series, mcol, MAR, rf):
     dContainer.ddmar = np.std(m_mar)
     dContainer.ddrf = np.std(m_rf)
     dContainer.ddzero = np.std(m_loss)
-    dContainer.mdd = pas.max_dd(m)
+    dContainer.mdd = min(pad.find_drawdowns(series))
     dContainer.hvar = pas.var(m, .05)
     dContainer.hes = pas.cvar(m, .05)
     dContainer.mvar = pas.modified_var(m, .05)
