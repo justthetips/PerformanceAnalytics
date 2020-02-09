@@ -65,7 +65,7 @@ def calendar_returns(data_series, manager_col=0, index_cols=None, as_perc=False)
             idx = '-'.join([str(y), str(m)])
             # see if the index is in there
             if idx in _s.index:
-                df.iloc[mc][y] = _s[idx]
+                df.iloc[mc][y] = np.prod(1+_s[idx].dropna()) - 1
 
     # we now have the data frame, now we can append the annual returns as the last row
     annual_returns = []
